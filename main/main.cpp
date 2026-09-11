@@ -82,7 +82,7 @@ static void set_focus_items_for_screen(int screen)
         focus_items[0] = ui_Dropdown1;
         focus_items[1] = ui_Label21;
         focus_items[2] = ui_Label5;
-        focus_items[3] = ui_Switch2;
+        focus_items[3] = ui_Switch2; // comment
         focus_items[4] = ui_Switch5;
         focus_items[5] = ui_Slider4;
         focus_items[6] = ui_Slider5;
