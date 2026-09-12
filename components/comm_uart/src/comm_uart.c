@@ -1,14 +1,19 @@
+// comm_uart.c
 #include "comm_uart.h"
-#include "nav_event.h"
 #include "driver/uart.h"
-#include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/queue.h"
 #include "esp_log.h"
 
 static const char *TAG = "comm_uart";
 static QueueHandle_t s_nav_queue = NULL;
 static bool s_uart_ready = false;
+static volatile uart_input_mode_t s_mode = UART_MODE_NAV;
+
+void comm_uart_set_mode(uart_input_mode_t mode)
+{
+    s_mode = mode;
+    ESP_LOGI(TAG, "Doi che do input -> %s", mode == UART_MODE_NAV ? "NAV" : "DIGIT");
+}
 
 static int read_byte(TickType_t timeout)
 {
@@ -17,13 +22,12 @@ static int read_byte(TickType_t timeout)
     return uart_read_bytes(UART_NUM_0, &b, 1, timeout) == 1 ? b : -1;
 }
 
-static void push(nav_event_t ev)
+static void push(nav_event_t type, char ch)
 {
-    if (s_nav_queue) xQueueSend(s_nav_queue, &ev, 0);
+    nav_msg_t msg = { .type = type, .ch = ch };
+    if (s_nav_queue) xQueueSend(s_nav_queue, &msg, 0);
 }
 
-// Noi nay la CHO DUY NHAT biet ky tu tho nghia la gi.
-// Sau nay node thuc gui giao thuc khac, chi sua trong ham nay.
 static void rx_task(void *arg)
 {
     static bool ignore_lf_after_cr = false;
@@ -35,25 +39,33 @@ static void rx_task(void *arg)
         if (key == '\n' && ignore_lf_after_cr) { ignore_lf_after_cr = false; continue; }
         ignore_lf_after_cr = (key == '\r');
 
-        switch (key) {
-            case 'w': case 'W': push(NAV_PREV); ESP_LOGI(TAG, "Key 'w' -> NAV_PREV"); break;
-            case 's': case 'S': push(NAV_NEXT); ESP_LOGI(TAG, "Key 's' -> NAV_NEXT"); break;
-            case 'a': case 'A': push(NAV_DEC);  ESP_LOGI(TAG, "Key 'a' -> NAV_DEC");  break;
-            case 'd': case 'D': push(NAV_INC);  ESP_LOGI(TAG, "Key 'd' -> NAV_INC");  break;
-            case '\n': case '\r': push(NAV_SELECT); ESP_LOGI(TAG, "Key Enter -> NAV_SELECT"); break;
-            case 'b': case 'B': case 0x08: case 0x7f: push(NAV_BACK); ESP_LOGI(TAG, "Key 'b' -> NAV_BACK"); break;
-            case 0x1b: {
-                int c1 = read_byte(pdMS_TO_TICKS(100));
-                if (c1 != '[') break;
-                int c2 = read_byte(pdMS_TO_TICKS(100));
-                while (c2 >= '0' && c2 <= '9') c2 = read_byte(pdMS_TO_TICKS(100));
-                if (c2 == 'A') { push(NAV_PREV); ESP_LOGI(TAG, "Arrow Up -> NAV_PREV"); }
-                if (c2 == 'B') { push(NAV_NEXT); ESP_LOGI(TAG, "Arrow Down -> NAV_NEXT"); }
-                if (c2 == 'D') { push(NAV_DEC);  ESP_LOGI(TAG, "Arrow Left -> NAV_DEC"); }
-                if (c2 == 'C') { push(NAV_INC);  ESP_LOGI(TAG, "Arrow Right -> NAV_INC"); }
-                break;
+        // Enter/Back LUON co y nghia dac biet, khong bao gio bi hieu la chu so
+        if (key == '\n' || key == '\r') {
+            ESP_LOGI(TAG, "Key ENTER -> NAV_SELECT");
+            push(NAV_SELECT, 0);
+            continue;
+        }
+        if (key == 0x08 || key == 0x7f) {
+            ESP_LOGI(TAG, "Key BACK -> NAV_BACK");
+            push(NAV_BACK, 0);
+            continue;
+        }
+
+        if (s_mode == UART_MODE_DIGIT) {
+            if (key >= '0' && key <= '9') {
+                ESP_LOGI(TAG, "Key '%c' -> NAV_CHAR (dang nhap so)", key);
+                push(NAV_CHAR, (char)key);
             }
-            default: break;
+            continue;   // trong che do nhap so, 2/4/6/8 KHONG con la huong nua
+        }
+
+        // ---- UART_MODE_NAV ----
+        switch (key) {
+            case '2': ESP_LOGI(TAG, "Key '2' -> NAV_PREV"); push(NAV_PREV, 0); break;
+            case '8': ESP_LOGI(TAG, "Key '8' -> NAV_NEXT"); push(NAV_NEXT, 0); break;
+            case '4': ESP_LOGI(TAG, "Key '4' -> NAV_DEC");  push(NAV_DEC, 0);  break;
+            case '6': ESP_LOGI(TAG, "Key '6' -> NAV_INC");  push(NAV_INC, 0);  break;
+            default: break;  // 0,1,3,5,7,9 khong co nghia khi dang dieu huong
         }
     }
 }
@@ -62,11 +74,9 @@ QueueHandle_t comm_uart_init(void)
 {
     esp_err_t err = uart_driver_install(UART_NUM_0, 256, 0, 0, NULL, 0);
     s_uart_ready = (err == ESP_OK || err == ESP_ERR_INVALID_STATE);
-    if (!s_uart_ready) {
-        ESP_LOGW(TAG, "Khong khoi tao duoc UART: %s", esp_err_to_name(err));
-    }
+    if (!s_uart_ready) ESP_LOGW(TAG, "Khong khoi tao duoc UART: %s", esp_err_to_name(err));
 
-    s_nav_queue = xQueueCreate(8, sizeof(nav_event_t));
+    s_nav_queue = xQueueCreate(8, sizeof(nav_msg_t));
     xTaskCreate(rx_task, "uart_rx_task", 3072, NULL, 3, NULL);
     return s_nav_queue;
 }

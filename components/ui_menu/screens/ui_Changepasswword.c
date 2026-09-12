@@ -33,7 +33,7 @@ void ui_event_followpasswordopen(lv_event_t * e)
     lv_event_code_t event_code = lv_event_get_code(e);
 
     if(event_code == LV_EVENT_CLICKED) {
-        _ui_flag_modify(ui_Panel5, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
+        _ui_flag_modify(ui_Panel8, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
     }
 }
 
@@ -42,7 +42,7 @@ void ui_event_followadminpincode(lv_event_t * e)
     lv_event_code_t event_code = lv_event_get_code(e);
 
     if(event_code == LV_EVENT_CLICKED) {
-        _ui_flag_modify(ui_Panel8, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
+        _ui_flag_modify(ui_Panel5, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
     }
 }
 
@@ -158,6 +158,7 @@ void ui_Changepasswword_screen_init(void)
     lv_obj_set_y(ui_oldpasswordopen, -33);
     lv_obj_set_align(ui_oldpasswordopen, LV_ALIGN_CENTER);
     lv_label_set_text(ui_oldpasswordopen, "");
+    lv_obj_set_style_text_font(ui_oldpasswordopen, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(ui_oldpasswordopen, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_outline_color(ui_oldpasswordopen, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_outline_opa(ui_oldpasswordopen, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
@@ -180,6 +181,7 @@ void ui_Changepasswword_screen_init(void)
     lv_obj_set_y(ui_newpasswordopen, -12);
     lv_obj_set_align(ui_newpasswordopen, LV_ALIGN_CENTER);
     lv_label_set_text(ui_newpasswordopen, "");
+    lv_obj_set_style_text_font(ui_newpasswordopen, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(ui_newpasswordopen, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_outline_color(ui_newpasswordopen, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_outline_opa(ui_newpasswordopen, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
@@ -202,6 +204,7 @@ void ui_Changepasswword_screen_init(void)
     lv_obj_set_y(ui_confirmpasswordopen, 8);
     lv_obj_set_align(ui_confirmpasswordopen, LV_ALIGN_CENTER);
     lv_label_set_text(ui_confirmpasswordopen, "");
+    lv_obj_set_style_text_font(ui_confirmpasswordopen, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(ui_confirmpasswordopen, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_outline_color(ui_confirmpasswordopen, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_outline_opa(ui_confirmpasswordopen, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
@@ -258,6 +261,7 @@ void ui_Changepasswword_screen_init(void)
     lv_obj_set_y(ui_oldadminpincode, -33);
     lv_obj_set_align(ui_oldadminpincode, LV_ALIGN_CENTER);
     lv_label_set_text(ui_oldadminpincode, "");
+    lv_obj_set_style_text_font(ui_oldadminpincode, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(ui_oldadminpincode, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_outline_color(ui_oldadminpincode, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_outline_opa(ui_oldadminpincode, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
@@ -280,6 +284,7 @@ void ui_Changepasswword_screen_init(void)
     lv_obj_set_y(ui_newadminpincode, -12);
     lv_obj_set_align(ui_newadminpincode, LV_ALIGN_CENTER);
     lv_label_set_text(ui_newadminpincode, "");
+    lv_obj_set_style_text_font(ui_newadminpincode, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(ui_newadminpincode, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_outline_color(ui_newadminpincode, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_outline_opa(ui_newadminpincode, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
@@ -302,6 +307,7 @@ void ui_Changepasswword_screen_init(void)
     lv_obj_set_y(ui_confirmadminpincode, 8);
     lv_obj_set_align(ui_confirmadminpincode, LV_ALIGN_CENTER);
     lv_label_set_text(ui_confirmadminpincode, "");
+    lv_obj_set_style_text_font(ui_confirmadminpincode, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(ui_confirmadminpincode, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_outline_color(ui_confirmadminpincode, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_outline_opa(ui_confirmadminpincode, 255, LV_PART_MAIN | LV_STATE_FOCUSED);

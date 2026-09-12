@@ -17,8 +17,9 @@ extern lv_obj_t * ui_Adduser;
 extern void ui_event_backGUI5(lv_event_t * e);
 extern lv_obj_t * ui_backGUI5;
 extern lv_obj_t * ui_Label5;
-extern lv_obj_t * ui_NameAdduser;
 extern lv_obj_t * ui_Label35;
+extern void ui_event_NameAdduser(lv_event_t * e);
+extern lv_obj_t * ui_NameAdduser;
 extern lv_obj_t * ui_Addusercode;
 extern void ui_event_Adduserfinger(lv_event_t * e);
 extern lv_obj_t * ui_Adduserfinger;
@@ -32,6 +33,7 @@ extern lv_obj_t * ui_displayviewQR2;
 extern lv_obj_t * ui_statusFaceAdduser;
 extern void ui_event_backadduser(lv_event_t * e);
 extern lv_obj_t * ui_backadduser;
+extern lv_obj_t * ui_Keyboard1;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus
