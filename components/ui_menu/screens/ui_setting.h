@@ -34,6 +34,8 @@ extern void ui_event_followchangepassword(lv_event_t * e);
 extern lv_obj_t * ui_followchangepassword;
 extern void ui_event_backGUI1(lv_event_t * e);
 extern lv_obj_t * ui_backGUI1;
+extern void ui_event_followotherscreen(lv_event_t * e);
+extern lv_obj_t * ui_followotherscreen;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

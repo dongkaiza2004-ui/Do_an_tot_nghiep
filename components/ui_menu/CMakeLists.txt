@@ -1,4 +1,3 @@
-# components/ui_menu/CMakeLists.txt
 idf_component_register(
     SRCS
         "ui.c"
@@ -13,20 +12,28 @@ idf_component_register(
         "screens/ui_CPU.c"
         "screens/ui_Adduser.c"
         "screens/ui_Subuser.c"
+        "screens/ui_Keypad.c"
+        "screens/ui_fingerprint.c"
+        "screens/ui_network.c"
+        "screens/ui_help.c"
+        "screens/ui_otherscreen.c"
+        "screens/ui_User.c"
+        "screens/ui_UnlockHistory.c"
         "images/ui_img_background_png.c"
         "images/ui_img_376556310.c"
         "images/ui_img_wifi_png.c"
-        "images/ui_img_keypad_png.c"
-        "images/ui_img_exam_png.c"
-        "images/ui_img_fingerprint_png.c"
-        "images/ui_img_1122079624.c"
-        "images/ui_img_38905653.c"
-        "images/ui_img_1045203667.c"
         "images/ui_img_settings1_png.c"
         "images/ui_img_2094406470.c"
+        "images/ui_img_keypad_png.c"
+        "images/ui_img_fingerprint_png.c"
+        "images/ui_img_user_png.c"
         "images/ui_img_1534850174.c"
+        "images/ui_img_1045203667.c"
+        "images/ui_img_1122079624.c"
+        "images/ui_img_38905653.c"
         "images/ui_img_chip_png.c"
-        "src/ui_nav.c"                    
-    INCLUDE_DIRS "." "include"          
-    PRIV_REQUIRES lvgl esp_lvgl_port comm_uart        
+        "images/ui_img_exam_png.c"
+        "src/ui_nav.c"
+    INCLUDE_DIRS "." "include"
+    PRIV_REQUIRES lvgl esp_lvgl_port comm_uart
 )

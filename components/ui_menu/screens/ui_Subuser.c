@@ -6,21 +6,22 @@
 #include "../ui.h"
 
 lv_obj_t * ui_Subuser = NULL;
-lv_obj_t * ui_backGUI6 = NULL;
+lv_obj_t * ui_backuser3 = NULL;
 lv_obj_t * ui_Label36 = NULL;
-lv_obj_t * ui_ListUser = NULL;
+lv_obj_t * ui_ListUserfinger = NULL;
 lv_obj_t * ui_Subuserfinger = NULL;
 lv_obj_t * ui_Label38 = NULL;
+lv_obj_t * ui_ListUserface = NULL;
 lv_obj_t * ui_Subuserface = NULL;
 lv_obj_t * ui_Label39 = NULL;
 lv_obj_t * ui_statusdelete = NULL;
 // event funtions
-void ui_event_backGUI6(lv_event_t * e)
+void ui_event_backuser3(lv_event_t * e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
 
     if(event_code == LV_EVENT_CLICKED) {
-        _ui_screen_change(&ui_GUI, LV_SCR_LOAD_ANIM_FADE_ON, 200, 0, &ui_GUI_screen_init);
+        _ui_screen_change(&ui_User, LV_SCR_LOAD_ANIM_FADE_ON, 200, 0, &ui_User_screen_init);
     }
 }
 
@@ -49,51 +50,52 @@ void ui_Subuser_screen_init(void)
     ui_Subuser = lv_obj_create(NULL);
     lv_obj_clear_flag(ui_Subuser, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
 
-    ui_backGUI6 = lv_label_create(ui_Subuser);
-    lv_obj_set_width(ui_backGUI6, LV_SIZE_CONTENT);   /// 1
-    lv_obj_set_height(ui_backGUI6, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_backGUI6, -53);
-    lv_obj_set_y(ui_backGUI6, -70);
-    lv_obj_set_align(ui_backGUI6, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_backGUI6, "<<");
-    lv_obj_add_flag(ui_backGUI6, LV_OBJ_FLAG_CLICKABLE);     /// Flags
-    lv_obj_set_style_text_font(ui_backGUI6, &lv_font_montserrat_10, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_outline_color(ui_backGUI6, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
-    lv_obj_set_style_outline_opa(ui_backGUI6, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
-    lv_obj_set_style_outline_width(ui_backGUI6, 2, LV_PART_MAIN | LV_STATE_FOCUSED);
-    lv_obj_set_style_outline_pad(ui_backGUI6, 0, LV_PART_MAIN | LV_STATE_FOCUSED);
+    ui_backuser3 = lv_label_create(ui_Subuser);
+    lv_obj_set_width(ui_backuser3, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_backuser3, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_backuser3, -53);
+    lv_obj_set_y(ui_backuser3, -70);
+    lv_obj_set_align(ui_backuser3, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_backuser3, "<<");
+    lv_obj_add_flag(ui_backuser3, LV_OBJ_FLAG_CLICKABLE);     /// Flags
+    lv_obj_set_style_text_font(ui_backuser3, &lv_font_montserrat_10, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_outline_color(ui_backuser3, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_opa(ui_backuser3, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_width(ui_backuser3, 2, LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_pad(ui_backuser3, 0, LV_PART_MAIN | LV_STATE_FOCUSED);
 
     ui_Label36 = lv_label_create(ui_Subuser);
     lv_obj_set_width(ui_Label36, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_Label36, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_Label36, -13);
-    lv_obj_set_y(ui_Label36, -49);
+    lv_obj_set_x(ui_Label36, -23);
+    lv_obj_set_y(ui_Label36, -54);
     lv_obj_set_align(ui_Label36, LV_ALIGN_CENTER);
     lv_label_set_text(ui_Label36, "Delete Name/ID :");
-    lv_obj_set_style_text_font(ui_Label36, &lv_font_montserrat_10, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_Label36, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    ui_ListUser = lv_dropdown_create(ui_Subuser);
-    lv_obj_set_width(ui_ListUser, 95);
-    lv_obj_set_height(ui_ListUser, 25);
-    lv_obj_set_x(ui_ListUser, -1);
-    lv_obj_set_y(ui_ListUser, -23);
-    lv_obj_set_align(ui_ListUser, LV_ALIGN_CENTER);
-    lv_obj_add_flag(ui_ListUser, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
-    lv_obj_set_style_text_font(ui_ListUser, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_outline_color(ui_ListUser, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
-    lv_obj_set_style_outline_opa(ui_ListUser, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
-    lv_obj_set_style_outline_width(ui_ListUser, 2, LV_PART_MAIN | LV_STATE_FOCUSED);
-    lv_obj_set_style_outline_pad(ui_ListUser, 0, LV_PART_MAIN | LV_STATE_FOCUSED);
+    ui_ListUserfinger = lv_dropdown_create(ui_Subuser);
+    lv_obj_set_width(ui_ListUserfinger, 95);
+    lv_obj_set_height(ui_ListUserfinger, 25);
+    lv_obj_set_x(ui_ListUserfinger, -1);
+    lv_obj_set_y(ui_ListUserfinger, -33);
+    lv_obj_set_align(ui_ListUserfinger, LV_ALIGN_CENTER);
+    lv_obj_add_flag(ui_ListUserfinger, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
+    lv_obj_set_style_text_font(ui_ListUserfinger, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_outline_color(ui_ListUserfinger, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_opa(ui_ListUserfinger, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_width(ui_ListUserfinger, 2, LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_pad(ui_ListUserfinger, 0, LV_PART_MAIN | LV_STATE_FOCUSED);
 
-    lv_obj_set_style_text_font(ui_ListUser, &lv_font_montserrat_8, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_ListUserfinger, &lv_font_montserrat_8, LV_PART_INDICATOR | LV_STATE_DEFAULT);
 
-    lv_obj_set_style_text_font(lv_dropdown_get_list(ui_ListUser), &lv_font_montserrat_8,  LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(lv_dropdown_get_list(ui_ListUserfinger), &lv_font_montserrat_8,
+                               LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_Subuserfinger = lv_btn_create(ui_Subuser);
     lv_obj_set_width(ui_Subuserfinger, 32);
     lv_obj_set_height(ui_Subuserfinger, 17);
-    lv_obj_set_x(ui_Subuserfinger, -28);
-    lv_obj_set_y(ui_Subuserfinger, 12);
+    lv_obj_set_x(ui_Subuserfinger, -5);
+    lv_obj_set_y(ui_Subuserfinger, -6);
     lv_obj_set_align(ui_Subuserfinger, LV_ALIGN_CENTER);
     lv_obj_add_flag(ui_Subuserfinger, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
     lv_obj_clear_flag(ui_Subuserfinger, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
@@ -113,11 +115,29 @@ void ui_Subuser_screen_init(void)
     lv_obj_set_style_text_opa(ui_Label38, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_Label38, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    ui_ListUserface = lv_dropdown_create(ui_Subuser);
+    lv_obj_set_width(ui_ListUserface, 95);
+    lv_obj_set_height(ui_ListUserface, 25);
+    lv_obj_set_x(ui_ListUserface, -1);
+    lv_obj_set_y(ui_ListUserface, 25);
+    lv_obj_set_align(ui_ListUserface, LV_ALIGN_CENTER);
+    lv_obj_add_flag(ui_ListUserface, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
+    lv_obj_set_style_text_font(ui_ListUserface, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_outline_color(ui_ListUserface, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_opa(ui_ListUserface, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_width(ui_ListUserface, 2, LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_pad(ui_ListUserface, 0, LV_PART_MAIN | LV_STATE_FOCUSED);
+
+    lv_obj_set_style_text_font(ui_ListUserface, &lv_font_montserrat_8, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+
+    lv_obj_set_style_text_font(lv_dropdown_get_list(ui_ListUserface), &lv_font_montserrat_8,
+                               LV_PART_MAIN | LV_STATE_DEFAULT);
+
     ui_Subuserface = lv_btn_create(ui_Subuser);
     lv_obj_set_width(ui_Subuserface, 32);
-    lv_obj_set_height(ui_Subuserface, 17);
-    lv_obj_set_x(ui_Subuserface, 25);
-    lv_obj_set_y(ui_Subuserface, 13);
+    lv_obj_set_height(ui_Subuserface, 16);
+    lv_obj_set_x(ui_Subuserface, -3);
+    lv_obj_set_y(ui_Subuserface, 54);
     lv_obj_set_align(ui_Subuserface, LV_ALIGN_CENTER);
     lv_obj_add_flag(ui_Subuserface, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
     lv_obj_clear_flag(ui_Subuserface, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
@@ -140,8 +160,8 @@ void ui_Subuser_screen_init(void)
     ui_statusdelete = lv_label_create(ui_Subuser);
     lv_obj_set_width(ui_statusdelete, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_statusdelete, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_statusdelete, 0);
-    lv_obj_set_y(ui_statusdelete, 43);
+    lv_obj_set_x(ui_statusdelete, 1);
+    lv_obj_set_y(ui_statusdelete, -70);
     lv_obj_set_align(ui_statusdelete, LV_ALIGN_CENTER);
     lv_label_set_text(ui_statusdelete, "Delete complete");
     lv_obj_add_flag(ui_statusdelete, LV_OBJ_FLAG_HIDDEN);     /// Flags
@@ -149,7 +169,7 @@ void ui_Subuser_screen_init(void)
     lv_obj_set_style_text_opa(ui_statusdelete, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_statusdelete, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    lv_obj_add_event_cb(ui_backGUI6, ui_event_backGUI6, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_backuser3, ui_event_backuser3, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Subuserfinger, ui_event_Subuserfinger, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Subuserface, ui_event_Subuserface, LV_EVENT_ALL, NULL);
 
@@ -161,11 +181,12 @@ void ui_Subuser_screen_destroy(void)
 
     // NULL screen variables
     ui_Subuser = NULL;
-    ui_backGUI6 = NULL;
+    ui_backuser3 = NULL;
     ui_Label36 = NULL;
-    ui_ListUser = NULL;
+    ui_ListUserfinger = NULL;
     ui_Subuserfinger = NULL;
     ui_Label38 = NULL;
+    ui_ListUserface = NULL;
     ui_Subuserface = NULL;
     ui_Label39 = NULL;
     ui_statusdelete = NULL;

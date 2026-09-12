@@ -8,7 +8,7 @@
 lv_obj_t * ui_CPU = NULL;
 lv_obj_t * ui_Label3 = NULL;
 lv_obj_t * ui_CPULoad = NULL;
-lv_obj_t * ui_backGUI4 = NULL;
+lv_obj_t * ui_backotherscreen = NULL;
 lv_obj_t * ui_Label8 = NULL;
 lv_obj_t * ui_Label21 = NULL;
 lv_obj_t * ui_Label22 = NULL;
@@ -24,12 +24,12 @@ lv_obj_t * ui_uptime = NULL;
 lv_obj_t * ui_Firmwareversion = NULL;
 lv_obj_t * ui_Temperature = NULL;
 // event funtions
-void ui_event_backGUI4(lv_event_t * e)
+void ui_event_backotherscreen(lv_event_t * e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
 
     if(event_code == LV_EVENT_CLICKED) {
-        _ui_screen_change(&ui_GUI, LV_SCR_LOAD_ANIM_FADE_ON, 200, 0, &ui_GUI_screen_init);
+        _ui_screen_change(&ui_otherscreen, LV_SCR_LOAD_ANIM_FADE_ON, 200, 0, &ui_otherscreen_screen_init);
     }
 }
 
@@ -63,19 +63,19 @@ void ui_CPU_screen_init(void)
     lv_obj_set_style_outline_width(ui_CPULoad, 2, LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_outline_pad(ui_CPULoad, 0, LV_PART_MAIN | LV_STATE_FOCUSED);
 
-    ui_backGUI4 = lv_label_create(ui_CPU);
-    lv_obj_set_width(ui_backGUI4, LV_SIZE_CONTENT);   /// 1
-    lv_obj_set_height(ui_backGUI4, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_backGUI4, -53);
-    lv_obj_set_y(ui_backGUI4, -70);
-    lv_obj_set_align(ui_backGUI4, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_backGUI4, "<<");
-    lv_obj_add_flag(ui_backGUI4, LV_OBJ_FLAG_CLICKABLE);     /// Flags
-    lv_obj_set_style_text_font(ui_backGUI4, &lv_font_montserrat_10, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_outline_color(ui_backGUI4, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
-    lv_obj_set_style_outline_opa(ui_backGUI4, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
-    lv_obj_set_style_outline_width(ui_backGUI4, 2, LV_PART_MAIN | LV_STATE_FOCUSED);
-    lv_obj_set_style_outline_pad(ui_backGUI4, 0, LV_PART_MAIN | LV_STATE_FOCUSED);
+    ui_backotherscreen = lv_label_create(ui_CPU);
+    lv_obj_set_width(ui_backotherscreen, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_backotherscreen, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_backotherscreen, -53);
+    lv_obj_set_y(ui_backotherscreen, -70);
+    lv_obj_set_align(ui_backotherscreen, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_backotherscreen, "<<");
+    lv_obj_add_flag(ui_backotherscreen, LV_OBJ_FLAG_CLICKABLE);     /// Flags
+    lv_obj_set_style_text_font(ui_backotherscreen, &lv_font_montserrat_10, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_outline_color(ui_backotherscreen, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_opa(ui_backotherscreen, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_width(ui_backotherscreen, 2, LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_pad(ui_backotherscreen, 0, LV_PART_MAIN | LV_STATE_FOCUSED);
 
     ui_Label8 = lv_label_create(ui_CPU);
     lv_obj_set_width(ui_Label8, LV_SIZE_CONTENT);   /// 1
@@ -238,7 +238,7 @@ void ui_CPU_screen_init(void)
     lv_obj_set_style_outline_width(ui_Temperature, 2, LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_outline_pad(ui_Temperature, 0, LV_PART_MAIN | LV_STATE_FOCUSED);
 
-    lv_obj_add_event_cb(ui_backGUI4, ui_event_backGUI4, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_backotherscreen, ui_event_backotherscreen, LV_EVENT_ALL, NULL);
 
 }
 
@@ -250,7 +250,7 @@ void ui_CPU_screen_destroy(void)
     ui_CPU = NULL;
     ui_Label3 = NULL;
     ui_CPULoad = NULL;
-    ui_backGUI4 = NULL;
+    ui_backotherscreen = NULL;
     ui_Label8 = NULL;
     ui_Label21 = NULL;
     ui_Label22 = NULL;

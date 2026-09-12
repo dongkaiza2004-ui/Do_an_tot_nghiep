@@ -6,7 +6,7 @@
 #include "../ui.h"
 
 lv_obj_t * ui_Adduser = NULL;
-lv_obj_t * ui_backGUI5 = NULL;
+lv_obj_t * ui_backuser2 = NULL;
 lv_obj_t * ui_Label5 = NULL;
 lv_obj_t * ui_Label35 = NULL;
 lv_obj_t * ui_NameAdduser = NULL;
@@ -20,23 +20,13 @@ lv_obj_t * ui_Panel1 = NULL;
 lv_obj_t * ui_displayviewQR2 = NULL;
 lv_obj_t * ui_statusFaceAdduser = NULL;
 lv_obj_t * ui_backadduser = NULL;
-lv_obj_t * ui_Keyboard1 = NULL;
 // event funtions
-void ui_event_backGUI5(lv_event_t * e)
+void ui_event_backuser2(lv_event_t * e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
 
     if(event_code == LV_EVENT_CLICKED) {
-        _ui_screen_change(&ui_GUI, LV_SCR_LOAD_ANIM_FADE_ON, 200, 0, &ui_GUI_screen_init);
-    }
-}
-
-void ui_event_NameAdduser(lv_event_t * e)
-{
-    lv_event_code_t event_code = lv_event_get_code(e);
-
-    if(event_code == LV_EVENT_CLICKED) {
-        _ui_flag_modify(ui_Keyboard1, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_TOGGLE);
+        _ui_screen_change(&ui_User, LV_SCR_LOAD_ANIM_FADE_ON, 200, 0, &ui_User_screen_init);
     }
 }
 
@@ -74,19 +64,19 @@ void ui_Adduser_screen_init(void)
     ui_Adduser = lv_obj_create(NULL);
     lv_obj_clear_flag(ui_Adduser, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
 
-    ui_backGUI5 = lv_label_create(ui_Adduser);
-    lv_obj_set_width(ui_backGUI5, LV_SIZE_CONTENT);   /// 1
-    lv_obj_set_height(ui_backGUI5, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_backGUI5, -53);
-    lv_obj_set_y(ui_backGUI5, -70);
-    lv_obj_set_align(ui_backGUI5, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_backGUI5, "<<");
-    lv_obj_add_flag(ui_backGUI5, LV_OBJ_FLAG_CLICKABLE);     /// Flags
-    lv_obj_set_style_text_font(ui_backGUI5, &lv_font_montserrat_10, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_outline_color(ui_backGUI5, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
-    lv_obj_set_style_outline_opa(ui_backGUI5, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
-    lv_obj_set_style_outline_width(ui_backGUI5, 2, LV_PART_MAIN | LV_STATE_FOCUSED);
-    lv_obj_set_style_outline_pad(ui_backGUI5, 0, LV_PART_MAIN | LV_STATE_FOCUSED);
+    ui_backuser2 = lv_label_create(ui_Adduser);
+    lv_obj_set_width(ui_backuser2, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_backuser2, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_backuser2, -53);
+    lv_obj_set_y(ui_backuser2, -70);
+    lv_obj_set_align(ui_backuser2, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_backuser2, "<<");
+    lv_obj_add_flag(ui_backuser2, LV_OBJ_FLAG_CLICKABLE);     /// Flags
+    lv_obj_set_style_text_font(ui_backuser2, &lv_font_montserrat_10, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_outline_color(ui_backuser2, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_opa(ui_backuser2, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_width(ui_backuser2, 2, LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_pad(ui_backuser2, 0, LV_PART_MAIN | LV_STATE_FOCUSED);
 
     ui_Label5 = lv_label_create(ui_Adduser);
     lv_obj_set_width(ui_Label5, LV_SIZE_CONTENT);   /// 1
@@ -106,22 +96,16 @@ void ui_Adduser_screen_init(void)
     lv_label_set_text(ui_Label35, "Code         : ");
     lv_obj_set_style_text_font(ui_Label35, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    ui_NameAdduser = lv_textarea_create(ui_Adduser);
+    ui_NameAdduser = lv_label_create(ui_Adduser);
     lv_obj_set_width(ui_NameAdduser, 62);
     lv_obj_set_height(ui_NameAdduser, 13);
     lv_obj_set_x(ui_NameAdduser, 22);
-    lv_obj_set_y(ui_NameAdduser, -57);
+    lv_obj_set_y(ui_NameAdduser, -56);
     lv_obj_set_align(ui_NameAdduser, LV_ALIGN_CENTER);
-    lv_textarea_set_placeholder_text(ui_NameAdduser, "Placeholder...");
+    lv_label_set_text(ui_NameAdduser, "");
+    lv_obj_add_flag(ui_NameAdduser, LV_OBJ_FLAG_CLICKABLE);     /// Flags
     lv_obj_set_style_text_font(ui_NameAdduser, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_radius(ui_NameAdduser, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_color(ui_NameAdduser, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_opa(ui_NameAdduser, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(ui_NameAdduser, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_left(ui_NameAdduser, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_right(ui_NameAdduser, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_top(ui_NameAdduser, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_bottom(ui_NameAdduser, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_outline_color(ui_NameAdduser, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_outline_opa(ui_NameAdduser, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_outline_width(ui_NameAdduser, 2, LV_PART_MAIN | LV_STATE_FOCUSED);
@@ -251,25 +235,10 @@ void ui_Adduser_screen_init(void)
     lv_obj_set_style_outline_width(ui_backadduser, 2, LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_outline_pad(ui_backadduser, 0, LV_PART_MAIN | LV_STATE_FOCUSED);
 
-    ui_Keyboard1 = lv_keyboard_create(ui_Adduser);
-    lv_obj_set_width(ui_Keyboard1, 128);
-    lv_obj_set_height(ui_Keyboard1, 60);
-    lv_obj_set_x(ui_Keyboard1, 1);
-    lv_obj_set_y(ui_Keyboard1, 48);
-    lv_obj_set_align(ui_Keyboard1, LV_ALIGN_CENTER);
-
-    lv_obj_set_style_text_font(ui_Keyboard1, &lv_font_montserrat_8, LV_PART_ITEMS | LV_STATE_DEFAULT);
-    lv_obj_set_style_outline_color(ui_Keyboard1, lv_color_hex(0x15F800), LV_PART_ITEMS | LV_STATE_FOCUSED);
-    lv_obj_set_style_outline_opa(ui_Keyboard1, 255, LV_PART_ITEMS | LV_STATE_FOCUSED);
-    lv_obj_set_style_outline_width(ui_Keyboard1, 2, LV_PART_ITEMS | LV_STATE_FOCUSED);
-    lv_obj_set_style_outline_pad(ui_Keyboard1, 0, LV_PART_ITEMS | LV_STATE_FOCUSED);
-
-    lv_obj_add_event_cb(ui_backGUI5, ui_event_backGUI5, LV_EVENT_ALL, NULL);
-    lv_obj_add_event_cb(ui_NameAdduser, ui_event_NameAdduser, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_backuser2, ui_event_backuser2, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Adduserfinger, ui_event_Adduserfinger, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Adduserface, ui_event_Adduserface, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_backadduser, ui_event_backadduser, LV_EVENT_ALL, NULL);
-    lv_keyboard_set_textarea(ui_Keyboard1, ui_NameAdduser);
 
 }
 
@@ -279,7 +248,7 @@ void ui_Adduser_screen_destroy(void)
 
     // NULL screen variables
     ui_Adduser = NULL;
-    ui_backGUI5 = NULL;
+    ui_backuser2 = NULL;
     ui_Label5 = NULL;
     ui_Label35 = NULL;
     ui_NameAdduser = NULL;
@@ -293,6 +262,5 @@ void ui_Adduser_screen_destroy(void)
     ui_displayviewQR2 = NULL;
     ui_statusFaceAdduser = NULL;
     ui_backadduser = NULL;
-    ui_Keyboard1 = NULL;
 
 }

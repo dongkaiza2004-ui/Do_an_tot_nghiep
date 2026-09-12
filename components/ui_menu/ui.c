@@ -42,6 +42,13 @@ void ui_init(void)
     ui_CPU_screen_init();
     ui_Adduser_screen_init();
     ui_Subuser_screen_init();
+    ui_Keypad_screen_init();
+    ui_fingerprint_screen_init();
+    ui_network_screen_init();
+    ui_help_screen_init();
+    ui_otherscreen_screen_init();
+    ui_User_screen_init();
+    ui_UnlockHistory_screen_init();
     ui____initial_actions0 = lv_obj_create(NULL);
     lv_disp_load_scr(ui_GUI);
 }
@@ -57,4 +64,11 @@ void ui_destroy(void)
     ui_CPU_screen_destroy();
     ui_Adduser_screen_destroy();
     ui_Subuser_screen_destroy();
+    ui_Keypad_screen_destroy();
+    ui_fingerprint_screen_destroy();
+    ui_network_screen_destroy();
+    ui_help_screen_destroy();
+    ui_otherscreen_screen_destroy();
+    ui_User_screen_destroy();
+    ui_UnlockHistory_screen_destroy();
 }

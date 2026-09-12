@@ -21,6 +21,7 @@ lv_obj_t * ui_setThreshold = NULL;
 lv_obj_t * ui_Label20 = NULL;
 lv_obj_t * ui_followchangepassword = NULL;
 lv_obj_t * ui_backGUI1 = NULL;
+lv_obj_t * ui_followotherscreen = NULL;
 // event funtions
 void ui_event_followCamera(lv_event_t * e)
 {
@@ -69,6 +70,15 @@ void ui_event_backGUI1(lv_event_t * e)
     }
 }
 
+void ui_event_followotherscreen(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_CLICKED) {
+        _ui_screen_change(&ui_otherscreen, LV_SCR_LOAD_ANIM_FADE_ON, 200, 0, &ui_otherscreen_screen_init);
+    }
+}
+
 // build funtions
 
 void ui_setting_screen_init(void)
@@ -82,7 +92,7 @@ void ui_setting_screen_init(void)
     lv_obj_set_width(ui_setModel, 90);
     lv_obj_set_height(ui_setModel, 24);
     lv_obj_set_x(ui_setModel, 18);
-    lv_obj_set_y(ui_setModel, -45);
+    lv_obj_set_y(ui_setModel, -55);
     lv_obj_set_align(ui_setModel, LV_ALIGN_CENTER);
     lv_obj_add_flag(ui_setModel, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
     lv_obj_set_style_text_font(ui_setModel, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -97,7 +107,7 @@ void ui_setting_screen_init(void)
     lv_obj_set_width(ui_Label1, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_Label1, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_Label1, 5);
-    lv_obj_set_y(ui_Label1, 25);
+    lv_obj_set_y(ui_Label1, 15);
     lv_label_set_text(ui_Label1, "Model :");
     lv_obj_set_style_text_color(ui_Label1, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui_Label1, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -107,7 +117,7 @@ void ui_setting_screen_init(void)
     lv_obj_set_width(ui_Label4, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_Label4, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_Label4, -39);
-    lv_obj_set_y(ui_Label4, -24);
+    lv_obj_set_y(ui_Label4, -34);
     lv_obj_set_align(ui_Label4, LV_ALIGN_CENTER);
     lv_label_set_text(ui_Label4, "Threshold :");
     lv_obj_set_style_text_font(ui_Label4, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -116,7 +126,7 @@ void ui_setting_screen_init(void)
     lv_obj_set_width(ui_followCamera, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_followCamera, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_followCamera, -3);
-    lv_obj_set_y(ui_followCamera, -3);
+    lv_obj_set_y(ui_followCamera, -15);
     lv_obj_set_align(ui_followCamera, LV_ALIGN_CENTER);
     lv_label_set_text(ui_followCamera, "Camera                                      >");
     lv_obj_add_flag(ui_followCamera, LV_OBJ_FLAG_CLICKABLE);     /// Flags
@@ -130,7 +140,7 @@ void ui_setting_screen_init(void)
     lv_obj_set_width(ui_Label16, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_Label16, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_Label16, -48);
-    lv_obj_set_y(ui_Label16, 18);
+    lv_obj_set_y(ui_Label16, 6);
     lv_obj_set_align(ui_Label16, LV_ALIGN_CENTER);
     lv_label_set_text(ui_Label16, "FPS : ");
     lv_obj_set_style_text_font(ui_Label16, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -139,7 +149,7 @@ void ui_setting_screen_init(void)
     lv_obj_set_width(ui_Label17, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_Label17, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_Label17, 10);
-    lv_obj_set_y(ui_Label17, 18);
+    lv_obj_set_y(ui_Label17, 6);
     lv_obj_set_align(ui_Label17, LV_ALIGN_CENTER);
     lv_label_set_text(ui_Label17, "border :");
     lv_obj_set_style_text_font(ui_Label17, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -148,7 +158,7 @@ void ui_setting_screen_init(void)
     lv_obj_set_width(ui_SwitchFPS, 21);
     lv_obj_set_height(ui_SwitchFPS, 11);
     lv_obj_set_x(ui_SwitchFPS, -23);
-    lv_obj_set_y(ui_SwitchFPS, 18);
+    lv_obj_set_y(ui_SwitchFPS, 6);
     lv_obj_set_align(ui_SwitchFPS, LV_ALIGN_CENTER);
     lv_obj_set_style_outline_color(ui_SwitchFPS, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_outline_opa(ui_SwitchFPS, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
@@ -159,7 +169,7 @@ void ui_setting_screen_init(void)
     lv_obj_set_width(ui_Switchborder, 21);
     lv_obj_set_height(ui_Switchborder, 11);
     lv_obj_set_x(ui_Switchborder, 42);
-    lv_obj_set_y(ui_Switchborder, 18);
+    lv_obj_set_y(ui_Switchborder, 6);
     lv_obj_set_align(ui_Switchborder, LV_ALIGN_CENTER);
     lv_obj_set_style_outline_color(ui_Switchborder, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_outline_opa(ui_Switchborder, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
@@ -170,7 +180,7 @@ void ui_setting_screen_init(void)
     lv_obj_set_width(ui_Label18, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_Label18, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_Label18, -38);
-    lv_obj_set_y(ui_Label18, 39);
+    lv_obj_set_y(ui_Label18, 27);
     lv_obj_set_align(ui_Label18, LV_ALIGN_CENTER);
     lv_label_set_text(ui_Label18, "Backlight :");
     lv_obj_set_style_text_font(ui_Label18, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -182,7 +192,7 @@ void ui_setting_screen_init(void)
     lv_obj_set_width(ui_setbacklight, 39);
     lv_obj_set_height(ui_setbacklight, 6);
     lv_obj_set_x(ui_setbacklight, 41);
-    lv_obj_set_y(ui_setbacklight, 40);
+    lv_obj_set_y(ui_setbacklight, 28);
     lv_obj_set_align(ui_setbacklight, LV_ALIGN_CENTER);
     lv_obj_set_style_outline_color(ui_setbacklight, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_outline_opa(ui_setbacklight, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
@@ -198,7 +208,7 @@ void ui_setting_screen_init(void)
     lv_obj_set_width(ui_Label19, 24);
     lv_obj_set_height(ui_Label19, 13);
     lv_obj_set_x(ui_Label19, 3);
-    lv_obj_set_y(ui_Label19, 39);
+    lv_obj_set_y(ui_Label19, 27);
     lv_obj_set_align(ui_Label19, LV_ALIGN_CENTER);
     lv_label_set_text(ui_Label19, "0");
     lv_obj_set_style_text_font(ui_Label19, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -211,7 +221,7 @@ void ui_setting_screen_init(void)
     lv_obj_set_width(ui_setThreshold, 39);
     lv_obj_set_height(ui_setThreshold, 6);
     lv_obj_set_x(ui_setThreshold, 40);
-    lv_obj_set_y(ui_setThreshold, -23);
+    lv_obj_set_y(ui_setThreshold, -33);
     lv_obj_set_align(ui_setThreshold, LV_ALIGN_CENTER);
     lv_obj_set_style_outline_color(ui_setThreshold, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_outline_opa(ui_setThreshold, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
@@ -227,7 +237,7 @@ void ui_setting_screen_init(void)
     lv_obj_set_width(ui_Label20, 24);
     lv_obj_set_height(ui_Label20, 13);
     lv_obj_set_x(ui_Label20, 3);
-    lv_obj_set_y(ui_Label20, -24);
+    lv_obj_set_y(ui_Label20, -34);
     lv_obj_set_align(ui_Label20, LV_ALIGN_CENTER);
     lv_label_set_text(ui_Label20, "0");
     lv_obj_set_style_text_font(ui_Label20, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -237,7 +247,7 @@ void ui_setting_screen_init(void)
     lv_obj_set_width(ui_followchangepassword, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_followchangepassword, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_followchangepassword, -2);
-    lv_obj_set_y(ui_followchangepassword, 63);
+    lv_obj_set_y(ui_followchangepassword, 48);
     lv_obj_set_align(ui_followchangepassword, LV_ALIGN_CENTER);
     lv_label_set_text(ui_followchangepassword, "Change password                 >");
     lv_obj_add_flag(ui_followchangepassword, LV_OBJ_FLAG_CLICKABLE);     /// Flags
@@ -261,11 +271,26 @@ void ui_setting_screen_init(void)
     lv_obj_set_style_outline_width(ui_backGUI1, 2, LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_outline_pad(ui_backGUI1, 0, LV_PART_MAIN | LV_STATE_FOCUSED);
 
+    ui_followotherscreen = lv_label_create(ui_setting);
+    lv_obj_set_width(ui_followotherscreen, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_followotherscreen, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_followotherscreen, -2);
+    lv_obj_set_y(ui_followotherscreen, 67);
+    lv_obj_set_align(ui_followotherscreen, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_followotherscreen, "Other screen                           >");
+    lv_obj_add_flag(ui_followotherscreen, LV_OBJ_FLAG_CLICKABLE);     /// Flags
+    lv_obj_set_style_text_font(ui_followotherscreen, &lv_font_montserrat_8, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_outline_color(ui_followotherscreen, lv_color_hex(0x15F800), LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_opa(ui_followotherscreen, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_width(ui_followotherscreen, 2, LV_PART_MAIN | LV_STATE_FOCUSED);
+    lv_obj_set_style_outline_pad(ui_followotherscreen, 0, LV_PART_MAIN | LV_STATE_FOCUSED);
+
     lv_obj_add_event_cb(ui_followCamera, ui_event_followCamera, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_setbacklight, ui_event_setbacklight, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_setThreshold, ui_event_setThreshold, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_followchangepassword, ui_event_followchangepassword, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_backGUI1, ui_event_backGUI1, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_followotherscreen, ui_event_followotherscreen, LV_EVENT_ALL, NULL);
 
 }
 
@@ -290,5 +315,6 @@ void ui_setting_screen_destroy(void)
     ui_Label20 = NULL;
     ui_followchangepassword = NULL;
     ui_backGUI1 = NULL;
+    ui_followotherscreen = NULL;
 
 }

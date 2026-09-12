@@ -27,6 +27,13 @@ extern "C" {
 #include "screens/ui_CPU.h"
 #include "screens/ui_Adduser.h"
 #include "screens/ui_Subuser.h"
+#include "screens/ui_Keypad.h"
+#include "screens/ui_fingerprint.h"
+#include "screens/ui_network.h"
+#include "screens/ui_help.h"
+#include "screens/ui_otherscreen.h"
+#include "screens/ui_User.h"
+#include "screens/ui_UnlockHistory.h"
 
 ///////////////////// VARIABLES ////////////////////
 
@@ -39,16 +46,12 @@ extern lv_obj_t * ui____initial_actions0;
 LV_IMG_DECLARE(ui_img_background_png);    // assets/background.png
 LV_IMG_DECLARE(ui_img_376556310);    // assets/no-wifi.png
 LV_IMG_DECLARE(ui_img_wifi_png);    // assets/wifi.png
-LV_IMG_DECLARE(ui_img_keypad_png);    // assets/keypad.png
-LV_IMG_DECLARE(ui_img_exam_png);    // assets/exam.png
-LV_IMG_DECLARE(ui_img_fingerprint_png);    // assets/fingerprint.png
-LV_IMG_DECLARE(ui_img_1122079624);    // assets/wifi-router.png
-LV_IMG_DECLARE(ui_img_38905653);    // assets/add-friend.png
-LV_IMG_DECLARE(ui_img_1045203667);    // assets/remove-user.png
 LV_IMG_DECLARE(ui_img_settings1_png);    // assets/settings1.png
 LV_IMG_DECLARE(ui_img_2094406470);    // assets/face-recognition.png
+LV_IMG_DECLARE(ui_img_keypad_png);    // assets/keypad.png
+LV_IMG_DECLARE(ui_img_fingerprint_png);    // assets/fingerprint.png
+LV_IMG_DECLARE(ui_img_user_png);    // assets/user.png
 LV_IMG_DECLARE(ui_img_1534850174);    // assets/qr-code.png
-LV_IMG_DECLARE(ui_img_chip_png);    // assets/chip.png
 
 // UI INIT
 void ui_init(void);

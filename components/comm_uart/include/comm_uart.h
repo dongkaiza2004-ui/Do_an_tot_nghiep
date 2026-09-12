@@ -1,4 +1,3 @@
-// comm_uart.h
 #pragma once
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -9,8 +8,8 @@ extern "C" {
 #endif
 
 typedef enum {
-    UART_MODE_NAV,     // dieu huong menu (mac dinh) - 2/4/6/8 la huong
-    UART_MODE_DIGIT,   // dang nhap so vao 1 o nao do - 2/4/6/8 la chu so
+    UART_MODE_NAV,    // 2/4/6/8 la huong di chuyen menu
+    UART_MODE_TEXT,   // moi byte nhan duoc la 1 ky tu that, ghi thang vao o dang nhap
 } uart_input_mode_t;
 
 QueueHandle_t comm_uart_init(void);

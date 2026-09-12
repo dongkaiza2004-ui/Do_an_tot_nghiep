@@ -14,13 +14,14 @@ extern "C" {
 extern void ui_Subuser_screen_init(void);
 extern void ui_Subuser_screen_destroy(void);
 extern lv_obj_t * ui_Subuser;
-extern void ui_event_backGUI6(lv_event_t * e);
-extern lv_obj_t * ui_backGUI6;
+extern void ui_event_backuser3(lv_event_t * e);
+extern lv_obj_t * ui_backuser3;
 extern lv_obj_t * ui_Label36;
-extern lv_obj_t * ui_ListUser;
+extern lv_obj_t * ui_ListUserfinger;
 extern void ui_event_Subuserfinger(lv_event_t * e);
 extern lv_obj_t * ui_Subuserfinger;
 extern lv_obj_t * ui_Label38;
+extern lv_obj_t * ui_ListUserface;
 extern void ui_event_Subuserface(lv_event_t * e);
 extern lv_obj_t * ui_Subuserface;
 extern lv_obj_t * ui_Label39;
