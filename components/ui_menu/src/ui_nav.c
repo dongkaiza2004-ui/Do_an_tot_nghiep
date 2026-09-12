@@ -43,7 +43,7 @@ static int    s_cur_screen_idx = -1;   // -1 = đang ở Home
 static size_t s_cur_item = 0;
 
 static void apply_home_focus(void);
-
+static void on_screen_loaded_cb(lv_event_t * e);
 void ui_nav_init(void)
 {
     nav_item_t g1[] = {
@@ -66,25 +66,35 @@ void ui_nav_init(void)
     memcpy(s_home_g2, g2, sizeof(g2));
 
     nav_item_t setting_items[] = {
-        { ui_setModel, "setModel" }, { ui_setThreshold, "setThreshold" },
-        { ui_SwitchFPS, "SwitchFPS" }, { ui_Switchborder, "Switchborder" },
-        { ui_setbacklight, "setbacklight" }, { ui_followCamera, "followCamera" },
-        { ui_followchangepassword, "followchangepassword" }, { ui_backGUI1, "backGUI1" },
+        { ui_setModel, "setModel" }, 
+        { ui_setThreshold, "setThreshold" },
+        { ui_followCamera, "followCamera" },
+        { ui_SwitchFPS, "SwitchFPS" }, 
+        { ui_Switchborder, "Switchborder" },
+        { ui_setbacklight, "setbacklight" }, 
+        { ui_followchangepassword, "followchangepassword" }, 
+        { ui_backGUI1, "backGUI1" },
     };
     reg_screen(ui_setting, "setting", setting_items, 8);
 
     nav_item_t cam_items[] = {
-        { ui_setBrightness, "setBrightness" }, { ui_setContrast, "setContrast" },
-        { ui_SwitchFlip, "SwitchFlip" }, { ui_SwitchMirror, "SwitchMirror" },
+        { ui_setBrightness, "setBrightness" }, 
+        { ui_setContrast, "setContrast" },
+        { ui_SwitchFlip, "SwitchFlip" }, 
+        { ui_SwitchMirror, "SwitchMirror" },
         { ui_backsetting1, "backsetting1" },
     };
     reg_screen(ui_ConfigCamera, "ConfigCamera", cam_items, 5);
 
     nav_item_t pass_items[] = {
-        { ui_oldpasswordopen, "oldpasswordopen" }, { ui_newpasswordopen, "newpasswordopen" },
-        { ui_confirmpasswordopen, "confirmpasswordopen" }, { ui_Buttonsavepasswordopen, "Buttonsavepasswordopen" },
-        { ui_oldadminpincode, "oldadminpincode" }, { ui_newadminpincode, "newadminpincode" },
-        { ui_confirmadminpincode, "confirmadminpincode" }, { ui_Buttonsaveadminpincode, "Buttonsaveadminpincode" },
+        { ui_oldpasswordopen, "oldpasswordopen" }, 
+        { ui_newpasswordopen, "newpasswordopen" },
+        { ui_confirmpasswordopen, "confirmpasswordopen" }, 
+        { ui_Buttonsavepasswordopen, "Buttonsavepasswordopen" },
+        { ui_oldadminpincode, "oldadminpincode" }, 
+        { ui_newadminpincode, "newadminpincode" },
+        { ui_confirmadminpincode, "confirmadminpincode" }, 
+        { ui_Buttonsaveadminpincode, "Buttonsaveadminpincode" },
         { ui_backsetting2, "backsetting2" },
     };
     reg_screen(ui_Changepasswword, "Changepassword", pass_items, 9);
@@ -99,17 +109,28 @@ void ui_nav_init(void)
     reg_screen(ui_CPU, "CPU", cpu_items, 1);
 
     nav_item_t adduser_items[] = {
-        { ui_Adduserfinger, "Adduserfinger" }, { ui_Adduserface, "Adduserface" },
-        { ui_backGUI5, "backGUI5" }, { ui_backadduser, "backadduser" },
+        { ui_Adduserfinger, "Adduserfinger" }, 
+        { ui_Adduserface, "Adduserface" },
+        { ui_backGUI5, "backGUI5" }, 
+        { ui_backadduser, "backadduser" },
     };
     reg_screen(ui_Adduser, "Adduser", adduser_items, 4);
 
     nav_item_t subuser_items[] = {
-        { ui_ListUser, "ListUser" }, { ui_Subuserfinger, "Subuserfinger" },
-        { ui_Subuserface, "Subuserface" }, { ui_backGUI6, "backGUI6" },
+        { ui_ListUser, "ListUser" }, 
+        { ui_Subuserfinger, "Subuserfinger" },
+        { ui_Subuserface, "Subuserface" }, 
+        { ui_backGUI6, "backGUI6" },
     };
     reg_screen(ui_Subuser, "Subuser", subuser_items, 4);
+    // Đăng ký bắt sự kiện load màn hình cho Home (ui_GUI)
+    lv_obj_add_event_cb(ui_GUI, on_screen_loaded_cb, LV_EVENT_SCREEN_LOADED, NULL);
 
+    // Đăng ký tự động cho tất cả các màn hình con đã reg_screen
+    for (size_t i = 0; i < s_screen_count; ++i) {
+        lv_obj_add_event_cb(s_screens[i].screen, on_screen_loaded_cb, LV_EVENT_SCREEN_LOADED, NULL);
+    }
+    
     ESP_LOGI(TAG, "ui_nav_init: da dang ky %u man", (unsigned)s_screen_count);
     apply_home_focus();
 }
@@ -154,7 +175,6 @@ static void apply_screen_focus(nav_screen_t *s)
     lv_obj_add_state(s->items[s_cur_item].obj, LV_STATE_FOCUSED);
     ESP_LOGI(TAG, "Focus -> %s [%s]", s->screen_name, s->items[s_cur_item].name);
 }
-
 // Chỉ gọi khi CHẮC CHẮN màn đã đổi (so lv_scr_act() truoc/sau)
 static void sync_to_screen(lv_obj_t *active)
 {
@@ -178,16 +198,8 @@ static void sync_to_screen(lv_obj_t *active)
 
 static void click_and_maybe_resync(lv_obj_t *target, const char *what)
 {
-    lv_obj_t *before = lv_scr_act();
     ESP_LOGI(TAG, "SELECT: gui CLICKED toi [%s]", what);
     lv_event_send(target, LV_EVENT_CLICKED, NULL);
-    lv_obj_t *after = lv_scr_act();
-    if (after != before) {
-        ESP_LOGI(TAG, "Man hinh da doi, dong bo lai focus");
-        sync_to_screen(after);
-    } else {
-        ESP_LOGI(TAG, "Man hinh khong doi, giu nguyen vi tri focus");
-    }
 }
 
 // ===== xử lý widget đặc biệt: chỉ Enter (mở/đóng/toggle) và Inc/Dec (chỉnh giá trị) =====
@@ -309,6 +321,13 @@ static void handle_nav_event(nav_event_t ev)
     if (s_cur_screen_idx < 0) handle_home_nav(ev);
     else handle_screen_nav(ev);
     lvgl_port_unlock();
+}
+// callback
+static void on_screen_loaded_cb(lv_event_t * e)
+{
+    lv_obj_t *act = lv_scr_act();
+    ESP_LOGI(TAG, "Màn hình mới đã load xong, đồng bộ lại focus!");
+    sync_to_screen(act);
 }
 
 void ui_nav_task(void *arg)

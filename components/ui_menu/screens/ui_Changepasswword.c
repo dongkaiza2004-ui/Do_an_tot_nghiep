@@ -114,6 +114,7 @@ void ui_Changepasswword_screen_init(void)
     lv_obj_set_x(ui_Panel8, -2);
     lv_obj_set_y(ui_Panel8, 21);
     lv_obj_set_align(ui_Panel8, LV_ALIGN_CENTER);
+    lv_obj_add_flag(ui_Panel8, LV_OBJ_FLAG_HIDDEN);     /// Flags
     lv_obj_clear_flag(ui_Panel8, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
 
     ui_Buttonsavepasswordopen = lv_btn_create(ui_Panel8);
