@@ -33,18 +33,28 @@ void ui_init(void)
     lv_theme_t * theme = lv_theme_default_init(dispp, lv_palette_main(LV_PALETTE_BLUE), lv_palette_main(LV_PALETTE_RED),
                                                false, LV_FONT_DEFAULT);
     lv_disp_set_theme(dispp, theme);
-    ui_Screen1_screen_init();
-    ui_Screen2_screen_init();
-    ui_Screen3_screen_init();
-    ui_Screen4_screen_init();
+    ui_GUI_screen_init();
+    ui_setting_screen_init();
+    ui_ConfigCamera_screen_init();
+    ui_Changepasswword_screen_init();
+    ui_Facerecognition_screen_init();
+    ui_QRcode_screen_init();
+    ui_CPU_screen_init();
+    ui_Adduser_screen_init();
+    ui_Subuser_screen_init();
     ui____initial_actions0 = lv_obj_create(NULL);
-    lv_disp_load_scr(ui_Screen1);
+    lv_disp_load_scr(ui_GUI);
 }
 
 void ui_destroy(void)
 {
-    ui_Screen1_screen_destroy();
-    ui_Screen2_screen_destroy();
-    ui_Screen3_screen_destroy();
-    ui_Screen4_screen_destroy();
+    ui_GUI_screen_destroy();
+    ui_setting_screen_destroy();
+    ui_ConfigCamera_screen_destroy();
+    ui_Changepasswword_screen_destroy();
+    ui_Facerecognition_screen_destroy();
+    ui_QRcode_screen_destroy();
+    ui_CPU_screen_destroy();
+    ui_Adduser_screen_destroy();
+    ui_Subuser_screen_destroy();
 }

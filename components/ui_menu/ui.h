@@ -18,10 +18,15 @@ extern "C" {
 
 ///////////////////// SCREENS ////////////////////
 
-#include "screens/ui_Screen1.h"
-#include "screens/ui_Screen2.h"
-#include "screens/ui_Screen3.h"
-#include "screens/ui_Screen4.h"
+#include "screens/ui_GUI.h"
+#include "screens/ui_setting.h"
+#include "screens/ui_ConfigCamera.h"
+#include "screens/ui_Changepasswword.h"
+#include "screens/ui_Facerecognition.h"
+#include "screens/ui_QRcode.h"
+#include "screens/ui_CPU.h"
+#include "screens/ui_Adduser.h"
+#include "screens/ui_Subuser.h"
 
 ///////////////////// VARIABLES ////////////////////
 
@@ -32,6 +37,7 @@ extern lv_obj_t * ui____initial_actions0;
 
 // IMAGES AND IMAGE SETS
 LV_IMG_DECLARE(ui_img_background_png);    // assets/background.png
+LV_IMG_DECLARE(ui_img_376556310);    // assets/no-wifi.png
 LV_IMG_DECLARE(ui_img_wifi_png);    // assets/wifi.png
 LV_IMG_DECLARE(ui_img_keypad_png);    // assets/keypad.png
 LV_IMG_DECLARE(ui_img_exam_png);    // assets/exam.png

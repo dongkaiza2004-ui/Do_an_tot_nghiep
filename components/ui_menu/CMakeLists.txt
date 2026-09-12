@@ -1,13 +1,20 @@
+# components/ui_menu/CMakeLists.txt
 idf_component_register(
     SRCS
-        "screens/ui_Screen1.c"
-        "screens/ui_Screen2.c"
-        "screens/ui_Screen3.c"
-        "screens/ui_Screen4.c"
         "ui.c"
-        "components/ui_comp_hook.c"
         "ui_helpers.c"
+        "components/ui_comp_hook.c"
+        "screens/ui_GUI.c"
+        "screens/ui_setting.c"
+        "screens/ui_ConfigCamera.c"
+        "screens/ui_Changepasswword.c"
+        "screens/ui_Facerecognition.c"
+        "screens/ui_QRcode.c"
+        "screens/ui_CPU.c"
+        "screens/ui_Adduser.c"
+        "screens/ui_Subuser.c"
         "images/ui_img_background_png.c"
+        "images/ui_img_376556310.c"
         "images/ui_img_wifi_png.c"
         "images/ui_img_keypad_png.c"
         "images/ui_img_exam_png.c"
@@ -19,6 +26,7 @@ idf_component_register(
         "images/ui_img_2094406470.c"
         "images/ui_img_1534850174.c"
         "images/ui_img_chip_png.c"
-    INCLUDE_DIRS "."
-    REQUIRES lvgl
+        "src/ui_nav.c"                    
+    INCLUDE_DIRS "." "include"          
+    PRIV_REQUIRES lvgl esp_lvgl_port comm_uart        
 )
