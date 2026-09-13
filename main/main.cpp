@@ -8,11 +8,14 @@
 #include "esp_lcd_st7735.h"
 #include "driver/spi_master.h"
 
+#include "sys_monitor.h"
 #include "display_driver.h"   // display_lvgl_init() - GIỮ NGUYÊN, không sửa
 #include "comm_uart.h"        // comm_uart_init() -> QueueHandle_t nav events
 #include "ui_nav.h"           // ui_nav_task()
 #include "ui.h"               // ui_init() - SquareLine export
 
+#include "cam_driver.h"    
+#include "face_engine.h"
 static const char *TAG = "APP_MAIN";
 
 // ---- TFT ST7735 pins ---- (giữ nguyên y hệt file bạn gửi)
@@ -78,7 +81,10 @@ extern "C" void app_main(void)
         return;
     }
     ui_init();
-    ui_nav_init(); 
+    ui_nav_init();
+    sys_monitor_start();
+    cam_driver_init();
+    face_engine_init();
     lvgl_port_unlock();
     ESP_LOGI(TAG, "LVGL UI init thanh cong");
 

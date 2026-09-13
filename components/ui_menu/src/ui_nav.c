@@ -89,9 +89,10 @@ void ui_nav_init(void)
     int SP_PASS_ADMIN = reg_subpanel(pass_admin_fields, 4);
 
     nav_item_t adduser_face_fields[] = {
+        ITEM(ui_displayviewQR2, "displayviewQR2"),
         ITEM_CLOSE(ui_backadduser, "backadduser"),
     };
-    int SP_ADDUSER_FACE = reg_subpanel(adduser_face_fields, 1);
+    int SP_ADDUSER_FACE = reg_subpanel(adduser_face_fields, 2);
 
     // ---- Home ----
     nav_item_t home_items[] = {
