@@ -14,12 +14,18 @@
 
 static const char *TAG = "face_engine";
 
+enum ViewMode { VIEW_NONE, VIEW_RECOGNIZE, VIEW_ENROLL };
 
 #define CAM_W   160
 #define CAM_H   120
 #define DISP_W  124
 #define DISP_H  120
 #define CROP_X  ((CAM_W - DISP_W) / 2)
+
+// ---- Cho man Adduser (enroll) ----
+#define ENROLL_DISP_W 108
+#define ENROLL_DISP_H 120
+#define ENROLL_CROP_X ((CAM_W - ENROLL_DISP_W) / 2)   // = 26
 
 
 static lv_obj_t   *s_cam_img = NULL;
@@ -28,6 +34,11 @@ static uint16_t   *s_disp_buf = NULL;
 
 static HumanFaceDetect     *s_detect = nullptr;
 static HumanFaceRecognizer *s_recognizer = nullptr;
+
+static lv_obj_t    *s_enroll_img = NULL;
+static lv_img_dsc_t s_enroll_img_dsc;
+static uint16_t    *s_enroll_buf = NULL;
+static volatile bool s_enroll_requested = false;
 
 static void init_spiffs(void)
 {
@@ -42,6 +53,47 @@ static void init_spiffs(void)
     else ESP_LOGI(TAG, "SPIFFS mount OK");
 }
 
+static void enroll_trigger_cb(lv_event_t *e)
+{
+    s_enroll_requested = true;
+    ESP_LOGI(TAG, "Da nhan lenh enroll, cho frame tiep theo co mat...");
+}
+
+static void create_enroll_image(void)
+{
+    s_enroll_buf = (uint16_t *)heap_caps_malloc(ENROLL_DISP_W * ENROLL_DISP_H * 2, MALLOC_CAP_SPIRAM);
+    memset(s_enroll_buf, 0, ENROLL_DISP_W * ENROLL_DISP_H * 2);
+
+    s_enroll_img_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
+    s_enroll_img_dsc.header.always_zero = 0;
+    s_enroll_img_dsc.header.w = ENROLL_DISP_W;
+    s_enroll_img_dsc.header.h = ENROLL_DISP_H;
+    s_enroll_img_dsc.data_size = ENROLL_DISP_W * ENROLL_DISP_H * 2;
+    s_enroll_img_dsc.data = (const uint8_t *)s_enroll_buf;
+
+    if (lvgl_port_lock(1000)) {
+        s_enroll_img = lv_img_create(ui_displayviewQR2);
+        lv_img_set_src(s_enroll_img, &s_enroll_img_dsc);
+        lv_obj_center(s_enroll_img);
+
+        // ui_displayviewQR2 mac dinh khong CLICKABLE (SquareLine tat) - bat lai
+        // bang API, khong sua file SquareLine sinh ra
+        lv_obj_add_flag(ui_displayviewQR2, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_add_event_cb(ui_displayviewQR2, enroll_trigger_cb, LV_EVENT_CLICKED, NULL);
+
+        lvgl_port_unlock();
+    }
+}
+
+// Ghi 1 dong "id,ten,ma" vao file danh sach user - phuc vu Subuser sau nay
+static void save_user_record(int id, const char *name, const char *code)
+{
+    FILE *f = fopen("/spiffs/users.csv", "a");
+    if (!f) { ESP_LOGE(TAG, "Khong mo duoc users.csv"); return; }
+    fprintf(f, "%d,%s,%s\n", id, name, code);
+    fclose(f);
+    ESP_LOGI(TAG, "Da luu user: id=%d ten=%s ma=%s", id, name, code);
+}
 
 static void create_display_image(void)
 {
@@ -80,22 +132,27 @@ static void draw_rectangle(uint16_t *buf, int img_w, int img_h,
     for (int y = y1; y <= y2; y++) { buf[y * img_w + x1] = color; buf[y * img_w + x2] = color; }
 }
 
+static ViewMode get_current_view_mode(void)
+{
+    if (lv_scr_act() == ui_Facerecognition) return VIEW_RECOGNIZE;
+    if (lv_scr_act() == ui_Adduser && !lv_obj_has_flag(ui_Panel1, LV_OBJ_FLAG_HIDDEN)) return VIEW_ENROLL;
+    return VIEW_NONE;
+}
+
 static void face_engine_task(void *arg)
 {
     int frames_since_recognize = 0;
     const int RECOGNIZE_EVERY_N_FRAMES = 10;
-
-    int frame_count = 0;                                  // THEM
-    int64_t last_fps_log = esp_timer_get_time();   
-    static char s_last_status[32] = "";
+    int frame_count = 0;
+    int64_t last_fps_log = esp_timer_get_time();
+    char last_status[32] = "";
+    char last_enroll_status[48] = "";
 
     while (true) {
-        if (lv_scr_act() != ui_Facerecognition) {
-            vTaskDelay(pdMS_TO_TICKS(200));
-            continue;
-        }
+        ViewMode mode = get_current_view_mode();
+        if (mode == VIEW_NONE) { vTaskDelay(pdMS_TO_TICKS(200)); continue; }
 
-        camera_fb_t *fb = cam_driver_get_frame();      
+        camera_fb_t *fb = cam_driver_get_frame();
         if (!fb) { vTaskDelay(pdMS_TO_TICKS(50)); continue; }
 
         size_t pixel_count = (size_t)fb->width * fb->height;
@@ -107,62 +164,89 @@ static void face_engine_task(void *arg)
         img.height = fb->height;
         img.pix_type = dl::image::DL_IMAGE_PIX_TYPE_RGB565LE;
 
-        auto &results = s_detect->run(img);
-        
-        const char *status_text = "Not Face";
-        uint32_t status_color = 0x4DEF2D;
-        static char status_buf[32];
+        auto &results = s_detect->run(img);   // ca 2 che do deu can detect
 
-        if (!results.empty()) {
-            frames_since_recognize++;
-            for (auto &res : results) {
-                draw_rectangle((uint16_t *)fb->buf, fb->width, fb->height,
-                                res.box[0], res.box[1], res.box[2], res.box[3], 0xF800);
+        for (auto &res : results) {
+            draw_rectangle((uint16_t *)fb->buf, fb->width, fb->height,
+                            res.box[0], res.box[1], res.box[2], res.box[3], 0xF800);
+        }
+
+        if (mode == VIEW_RECOGNIZE) {
+            // ---- Giu nguyen logic nhan dien cu ----
+            const char *status_text = "Not Face";
+            uint32_t status_color = 0x4DEF2D;
+            static char status_buf[32];
+
+            if (!results.empty()) {
+                frames_since_recognize++;
+                if (frames_since_recognize >= RECOGNIZE_EVERY_N_FRAMES) {
+                    auto rec_res = s_recognizer->recognize(img, results);
+                    if (!rec_res.empty()) {
+                        snprintf(status_buf, sizeof(status_buf), "ID %d (%.2f)", rec_res[0].id, rec_res[0].similarity);
+                        status_text = status_buf; status_color = 0x00AAFF;
+                        ESP_LOGI(TAG, "Nhan ra mat: ID=%d ,do tuong dong=%.2f", rec_res[0].id, rec_res[0].similarity);
+                    } else { status_text = "Khong nhan ra"; status_color = 0xFF9900; }
+                    frames_since_recognize = 0;
+                } else { status_text = "Da phat hien mat"; }
+            } else { frames_since_recognize = 0; }
+            
+            if (lvgl_port_lock(1000)) {
+                for (int y = 0; y < DISP_H; ++y) {
+                    memcpy(s_disp_buf + y * DISP_W, (uint16_t *)fb->buf + y * CAM_W + CROP_X, DISP_W * sizeof(uint16_t));
+                }
+                lv_obj_invalidate(s_cam_img);
+                if (strcmp(status_text, last_status) != 0) {
+                    lv_label_set_text(ui_statusFace, status_text);
+                    lv_obj_set_style_text_color(ui_statusFace, lv_color_hex(status_color), LV_PART_MAIN | LV_STATE_DEFAULT);
+                    strncpy(last_status, status_text, sizeof(last_status) - 1);
+                }
+                lvgl_port_unlock();
             }
-            if (frames_since_recognize >= RECOGNIZE_EVERY_N_FRAMES) {
-                auto rec_res = s_recognizer->recognize(img, results);
-                if (!rec_res.empty()) {
-                    snprintf(status_buf, sizeof(status_buf), "ID %d (%.2f)", rec_res[0].id, rec_res[0].similarity);
-                    status_text = status_buf;
-                    status_color = 0x00AAFF;
+        } 
+        else {
+            // ---- VIEW_ENROLL ----
+            const char *status_text = "Dat mat vao khung, bam OK de luu";
+            uint32_t status_color = 0x4DEF2D;
+            static char status_buf[48];
+
+            if (s_enroll_requested) {
+                if (!results.empty()) {
+                    int id = s_recognizer->enroll(img, results);
+                    // Lay ten/ma nguoi dung da nhap (ui_nav.c ghi thang vao 2 label nay)
+                    const char *name = lv_label_get_text(ui_NameAdduser);
+                    const char *code = lv_label_get_text(ui_Addusercode);
+                    save_user_record(id, name, code);
+                    snprintf(status_buf, sizeof(status_buf), "Da luu! ID=%d", id);
+                    status_text = status_buf; status_color = 0x00AAFF;
                 } else {
-                    status_text = "Khong nhan ra";
+                    status_text = "Chua thay mat, thu lai";
                     status_color = 0xFF9900;
                 }
-                frames_since_recognize = 0;
-            } else {
-                status_text = "Da phat hien mat";
+                s_enroll_requested = false;
             }
-        } else {
-            frames_since_recognize = 0;
+
+            if (lvgl_port_lock(1000)) {
+                for (int y = 0; y < ENROLL_DISP_H; ++y) {
+                    memcpy(s_enroll_buf + y * ENROLL_DISP_W, (uint16_t *)fb->buf + y * CAM_W + ENROLL_CROP_X, ENROLL_DISP_W * sizeof(uint16_t));
+                }
+                lv_obj_invalidate(s_enroll_img);
+                if (strcmp(status_text, last_enroll_status) != 0) {
+                    lv_label_set_text(ui_statusFaceAdduser, status_text);
+                    lv_obj_set_style_text_color(ui_statusFaceAdduser, lv_color_hex(status_color), LV_PART_MAIN | LV_STATE_DEFAULT);
+                    strncpy(last_enroll_status, status_text, sizeof(last_enroll_status) - 1);
+                }
+                lvgl_port_unlock();
+            }
         }
 
-        if (lvgl_port_lock(1000)) {
-            for (int y = 0; y < DISP_H; ++y) {
-                memcpy(s_disp_buf + y * DISP_W,
-                       (uint16_t *)fb->buf + y * CAM_W + CROP_X,
-                       DISP_W * sizeof(uint16_t));
-            }
-            lv_obj_invalidate(s_cam_img);
+        cam_driver_return_frame(fb);
 
-            if (strcmp(status_text, s_last_status) != 0) {
-                lv_label_set_text(ui_statusFace, status_text);
-                lv_obj_set_style_text_color(ui_statusFace, lv_color_hex(status_color), LV_PART_MAIN | LV_STATE_DEFAULT);
-                strncpy(s_last_status, status_text, sizeof(s_last_status) - 1);
-            }
-            lvgl_port_unlock();
+        frame_count++;
+        int64_t now = esp_timer_get_time();
+        if (now - last_fps_log >= 1000000) {
+            ESP_LOGI(TAG, "FPS: %d", frame_count);
+            frame_count = 0; last_fps_log = now;
         }
-
-        cam_driver_return_frame(fb);    
-        
-        frame_count++;                                     // THEM
-        int64_t now = esp_timer_get_time();                // THEM
-        if (now - last_fps_log >= 1000000) {                // THEM - moi 1 giay
-            ESP_LOGI(TAG, "FPS: %d", frame_count);           // THEM
-            frame_count = 0;                                 // THEM
-            last_fps_log = now;                              // THEM
-        }    
-
         vTaskDelay(1);
     }
 }
@@ -171,6 +255,7 @@ void face_engine_init(void)
 {
     init_spiffs();
     create_display_image();
+    create_enroll_image();  
 
     s_detect = new HumanFaceDetect();
     s_recognizer = new HumanFaceRecognizer("/spiffs/face.db");

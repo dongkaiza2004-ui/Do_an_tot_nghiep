@@ -2,9 +2,11 @@
 #include "esp_lvgl_port.h"
 
 lv_disp_t *disp_handle = NULL;
+static esp_lcd_panel_handle_t s_panel_handle = NULL;
 
 void display_lvgl_init(esp_lcd_panel_io_handle_t io_handle, esp_lcd_panel_handle_t panel_handle)
 {
+    s_panel_handle = panel_handle;
     // 1. Khởi tạo tác vụ nền cho LVGL
     lvgl_port_cfg_t lvgl_cfg = ESP_LVGL_PORT_INIT_CONFIG();
     lvgl_cfg.task_affinity = 0;
@@ -32,4 +34,8 @@ void display_lvgl_init(esp_lcd_panel_io_handle_t io_handle, esp_lcd_panel_handle
     };
 
     disp_handle = lvgl_port_add_disp(&disp_cfg);
+}
+esp_lcd_panel_handle_t display_driver_get_panel(void)
+{
+    return s_panel_handle;
 }

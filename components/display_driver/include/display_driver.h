@@ -2,6 +2,7 @@
 #define DISPLAY_DRIVER_H
 
 #include "esp_lcd_panel_io.h"
+#include "esp_lcd_panel_ops.h"
 #include "esp_lcd_panel_vendor.h"
 #include "esp_lvgl_port.h"
 
@@ -10,6 +11,7 @@ extern "C" {
 #endif
 
 void display_lvgl_init(esp_lcd_panel_io_handle_t io_handle, esp_lcd_panel_handle_t panel_handle);
+esp_lcd_panel_handle_t display_driver_get_panel(void);
 
 #ifdef __cplusplus
 }
