@@ -271,8 +271,13 @@ int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height,
 
             int cx = (out_results[0].x1 + out_results[0].x2) / 2;
             int cy = (out_results[0].y1 + out_results[0].y2) / 2;
-
-            if (s_event_queue && cooldown_should_emit(evt_type, evt_user_id, cx, cy)) {
+            if (!s_event_queue) {
+                ESP_LOGE(TAG, "Lỗi: s_event_queue chua duoc khoi tao (NULL)!");
+            } else if (!cooldown_should_emit(evt_type, evt_user_id, cx, cy)) {
+                ESP_LOGW(TAG, "Bo qua: Dang trong thoi gian Cooldown (vua gui xong)");
+            }
+            // if (s_event_queue && cooldown_should_emit(evt_type, evt_user_id, cx, cy)) { 
+            else {
                 uint8_t *jpg_buf = nullptr;
                 size_t   jpg_len = 0;
                 if (fmt2jpg((uint8_t *)rgb565_buf, (size_t)width * height * 2,
@@ -291,6 +296,7 @@ int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height,
                     ESP_LOGE(TAG, "Nen JPEG that bai cho anh su kien");
                 }
             }
+
         }
         else if(results.empty()){
             s_frame_counter = 0;

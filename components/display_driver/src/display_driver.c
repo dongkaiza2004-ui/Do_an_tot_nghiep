@@ -48,8 +48,8 @@ esp_err_t display_driver_init(void)
     io_config.cs_gpio_num = TFT_CS;
     io_config.dc_gpio_num = TFT_DC;
     io_config.spi_mode = 0;
-    io_config.pclk_hz = 20 * 1000 * 1000;
-    io_config.trans_queue_depth = 20;
+    io_config.pclk_hz = 10 * 1000 * 1000;
+    io_config.trans_queue_depth = 50;
     io_config.lcd_cmd_bits = 8;
     io_config.lcd_param_bits = 8;
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)LCD_HOST, &io_config, &io_handle));

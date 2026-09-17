@@ -1,5 +1,6 @@
 // comm_uart.c
 #include "comm_uart.h"
+#include "driver/gpio.h" 
 #include "uart_protocol.h"
 #include "app_state.h"
 #include "face_engine.h"
@@ -159,9 +160,10 @@ static void uart_rx_task(void *arg)
     uint8_t cmd = 0, len = 0, idx = 0, payload[UART_MAX_PAYLOAD];
 
     while (1) {
-        int n = uart_read_bytes(s_port, &byte, 1, pdMS_TO_TICKS(100));
+        ESP_LOGI(TAG, "Task Uart RX da chay");
+        int n = uart_read_bytes(s_port, &byte, 1, pdMS_TO_TICKS(1000));
         if (n <= 0) continue;
-
+    
         switch (state) {
             case WAIT_START:
                 if (byte == UART_FRAME_START) state = WAIT_CMD;
@@ -205,6 +207,7 @@ static void uart_rx_task(void *arg)
                 state = WAIT_START;
                 break;
         }
+        
     }
 }
 
@@ -223,12 +226,14 @@ esp_err_t comm_uart_init(uart_port_t port, int tx_pin, int rx_pin, int baud_rate
     ESP_ERROR_CHECK(uart_param_config(port, &cfg));
     ESP_ERROR_CHECK(uart_set_pin(port, tx_pin, rx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
     ESP_LOGI(TAG, "COM Uart init OK");
+
+    gpio_set_pull_mode((gpio_num_t)rx_pin, GPIO_PULLUP_ONLY);
     return ESP_OK;
 }
 
 void comm_uart_start(void)
 {
-    xTaskCreatePinnedToCore(uart_rx_task, "comm_uart_rx", 4096, NULL, 5, NULL, 0);
+    xTaskCreatePinnedToCore(uart_rx_task, "comm_uart_rx", 4096, NULL, 5, NULL, 1);
 }
 
 // Cho phep noi khac trong code (vd bao cao FPS dinh ky) gui phan hoi ma khong

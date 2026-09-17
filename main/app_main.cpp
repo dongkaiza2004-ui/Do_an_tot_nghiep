@@ -18,6 +18,7 @@
 #include "comm_espnow.h"
 
 static const char *TAG = "app_main";
+static SemaphoreHandle_t s_wifi_init_done;
 
 // TODO: doi cho dung chan UART thuc te noi giua Node A va Node B
 #define UART_PORT     UART_NUM_1
@@ -53,6 +54,14 @@ static void core1_hw_init_task(void *arg)
     vTaskDelete(NULL);
 }
 
+static void core0_wifi_init_task(void *arg)
+{
+    ESP_LOGI(TAG, "Dang khoi tao ESP-NOW tren Core 0...");
+    ESP_ERROR_CHECK(comm_espnow_init(NODE_B_MAC));
+    comm_espnow_start();
+    xSemaphoreGive(s_wifi_init_done);
+    vTaskDelete(NULL); // Khởi tạo xong thì tự xóa task
+}
 
 // Task chinh: lay frame moi nhat tu cam_driver, chay face_engine, ve overlay, xuat TFT.
 static void main_pipeline_task(void *arg)
@@ -77,8 +86,10 @@ static void main_pipeline_task(void *arg)
         uint16_t *buf = (uint16_t *)fb->buf;
         for (size_t i = 0; i < pixel_count; i++) buf[i] = (buf[i] >> 8) | (buf[i] << 8);
 
+        // vTaskDelay(pdMS_TO_TICKS(5));
         face_result_t results[FACE_ENGINE_MAX_RESULTS];
         int n = face_engine_process_frame(buf, fb->width, fb->height, results);
+        // vTaskDelay(pdMS_TO_TICKS(5));
 
         overlay_face_t ov[FACE_ENGINE_MAX_RESULTS];
         for (int i = 0; i < n; i++) {
@@ -123,19 +134,23 @@ extern "C" void app_main(void)
 
     ESP_ERROR_CHECK(face_engine_init());
     ESP_ERROR_CHECK(light_ctrl_init());
-    ESP_ERROR_CHECK(comm_espnow_init(NODE_B_MAC));
+
+    s_wifi_init_done = xSemaphoreCreateBinary();
+    // xTaskCreatePinnedToCore(core0_wifi_init_task, "wifi_init_c0", 4096, NULL, 5, NULL, 0);
+    // xSemaphoreTake(s_wifi_init_done, portMAX_DELAY);
+
     ESP_ERROR_CHECK(comm_uart_init(UART_PORT, UART_TX_PIN, UART_RX_PIN, UART_BAUD));
 
-    face_engine_set_event_queue(comm_espnow_get_event_queue());
+    // face_engine_set_event_queue(comm_espnow_get_event_queue());
 
     static QueueHandle_t frame_queue;
     frame_queue = xQueueCreate(1, sizeof(camera_fb_t *));
 
     cam_driver_start(frame_queue);
     light_ctrl_start();
-    comm_espnow_start();
+
     comm_uart_start();
 
-    xTaskCreatePinnedToCore(main_pipeline_task, "main_pipeline_task", 8192, &frame_queue, 6, NULL, 1);
+    xTaskCreatePinnedToCore(main_pipeline_task, "main_pipeline_task", 8192, &frame_queue, 3, NULL, 1);
     ESP_LOGI(TAG, "Node A da san sang.");
 }

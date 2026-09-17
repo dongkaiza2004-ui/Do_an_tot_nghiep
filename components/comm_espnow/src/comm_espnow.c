@@ -94,6 +94,8 @@ static void espnow_tx_task(void *arg)
 {
     face_event_t evt;
     while (1) {
+        ESP_LOGI(TAG, "Task ESP Now da chay");
+        // vTaskDelay(pdMS_TO_TICKS(100));
         if (xQueueReceive(s_event_queue, &evt, portMAX_DELAY) == pdTRUE) {
             if (evt.jpeg_data && evt.jpeg_len > 0) {
                 send_fragmented_jpeg(&evt);
