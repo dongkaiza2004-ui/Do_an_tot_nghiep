@@ -1,19 +1,17 @@
+// comm_uart.h
 #pragma once
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
-#include "nav_event.h"
+#include "esp_err.h"
+#include "driver/uart.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef enum {
-    UART_MODE_NAV,    // 2/4/6/8 la huong di chuyen menu
-    UART_MODE_TEXT,   // moi byte nhan duoc la 1 ky tu that, ghi thang vao o dang nhap
-} uart_input_mode_t;
+esp_err_t comm_uart_init(uart_port_t port, int tx_pin, int rx_pin, int baud_rate);
+void      comm_uart_start(void);   // tao task nen: doc byte, rap khung, validate checksum, dispatch lenh
 
-QueueHandle_t comm_uart_init(void);
-void comm_uart_set_mode(uart_input_mode_t mode);
+// Cho phep noi khac (vd task bao cao FPS dinh ky trong app_main) gui 1 khung phan hoi.
+void comm_uart_send_response(uint8_t rsp_cmd, const void *payload, uint8_t len);
 
 #ifdef __cplusplus
 }

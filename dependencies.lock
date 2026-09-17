@@ -61,20 +61,6 @@ dependencies:
       registry_url: https://components.espressif.com
       type: service
     version: 1.3.1
-  espressif/esp_lvgl_port:
-    component_hash: d3c020b45c3dfc0d1706a83b63a1c34a6eb444a6e935f9afff79f92b7b94dcef
-    dependencies:
-    - name: idf
-      require: private
-      version: '>=5.2'
-    - name: lvgl/lvgl
-      registry_url: https://components.espressif.com
-      require: public
-      version: '>=8,<10'
-    source:
-      registry_url: https://components.espressif.com/
-      type: service
-    version: 2.9.0
   espressif/esp_new_jpeg:
     component_hash: e1e7e6991193c41ed6c9fc386702aa7821433319e7aa9c3147cd3236310cd69c
     dependencies: []
@@ -120,13 +106,6 @@ dependencies:
     source:
       type: idf
     version: 5.4.4
-  lvgl/lvgl:
-    component_hash: 948bff879a345149b83065535bbc4a026ce9f47498a22881e432a264b9098015
-    dependencies: []
-    source:
-      registry_url: https://components.espressif.com/
-      type: service
-    version: 8.3.11
   teriyakigod/esp_lcd_st7735:
     component_hash: 5c61377ee7a5bbccb40a629c2db9c1918ce1645beb2732c007934c52bc1be2a1
     dependencies: []
@@ -136,11 +115,9 @@ dependencies:
     version: 0.0.1
 direct_dependencies:
 - espressif/esp32-camera
-- espressif/esp_lvgl_port
 - espressif/human_face_detect
 - espressif/human_face_recognition
-- lvgl/lvgl
 - teriyakigod/esp_lcd_st7735
-manifest_hash: 11f60f61e93e6259408be4bb98377a60ceac5662aab611df56659070ade09ab2
+manifest_hash: 5f5aa8d3f9b747d7e6e793bf7ade8092e74dd8891a3156432f7ed79447b635bc
 target: esp32s3
 version: 2.0.0

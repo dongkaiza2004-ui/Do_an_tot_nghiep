@@ -1,10 +1,5 @@
 idf_component_register(
     SRCS "src/face_engine.cpp"
     INCLUDE_DIRS "include"
-    PRIV_REQUIRES cam_driver human_face_detect human_face_recognition
-                  ui_menu esp_lvgl_port lvgl spiffs display_driver
-)
-
-target_compile_options(${COMPONENT_LIB} PRIVATE 
-    $<$<COMPILE_LANGUAGE:CXX>:-Wno-deprecated-enum-enum-conversion>
+    REQUIRES human_face_detect human_face_recognition esp32-camera app_state esp_timer
 )

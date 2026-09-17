@@ -1,265 +1,301 @@
+// face_engine.cpp
+//
+// XEM GHI CHU O DAU face_engine.h VE RUI RO SAI LECH TEN HAM/ENUM CUA
+// human_face_detect / human_face_recognition SO VOI BAN THUC TE BAN KEO VE.
+//
+// Vi thu vien esp-dl human_face_recognition (theo tim hieu) chi luu ID + vector
+// dac trung, KHONG luu ten nguoi dung, nen file nay tu quan ly rieng 1 bang
+// anh xa "user_id -> name" luu trong 1 file don gian tren SPIFFS
+// (/spiffs/user_names.bin), doc/ghi lai toan bo moi khi co thay doi (du du
+// cho quy mo vai chuc nguoi dung).
 #include "face_engine.h"
-#include "cam_driver.h"      // THEM
-#include "ui.h"
-#include "esp_lvgl_port.h"
-#include "esp_log.h"
-#include "esp_heap_caps.h"
-#include "esp_spiffs.h"
 #include "human_face_detect.hpp"
 #include "human_face_recognition.hpp"
+#include "img_converters.h"     // fmt2jpg() - tu esp32-camera, chuyen RGB565 tho -> JPEG
+#include "esp_log.h"
+#include "esp_heap_caps.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include <string.h>
-#include <stdio.h>
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+#include <cstdio>
+#include <cstring>
+#include <vector>
 
 static const char *TAG = "face_engine";
 
-enum ViewMode { VIEW_NONE, VIEW_RECOGNIZE, VIEW_ENROLL };
+#define USER_NAME_DB_PATH   "/spiffs/user_names.bin"
+#define MAX_USERS           32
+#define EVENT_COOLDOWN_MS   10000
+#define EVENT_POS_TOLERANCE 24     // px, coi la "cung 1 khuon mat" neu tam box lech duoi nguong nay
+#define JPEG_QUALITY         30    // 0-100, thap hon = nen nhieu hon/nhe hon nhung xau hon
+#define RECOG_FRAME_INTERVAL  50    // Số frame cách nhau giữa mỗi lần nhận diện (10 lần detect mới recognize 1 lần)
 
-#define CAM_W   160
-#define CAM_H   120
-#define DISP_W  124
-#define DISP_H  120
-#define CROP_X  ((CAM_W - DISP_W) / 2)
+static HumanFaceDetect      *s_detect     = nullptr;
+static HumanFaceRecognizer  *s_recognizer = nullptr;
+static QueueHandle_t         s_event_queue = nullptr;
+static uint32_t              s_frame_counter = 0;
 
-// ---- Cho man Adduser (enroll) ----
-#define ENROLL_DISP_W 108
-#define ENROLL_DISP_H 120
-#define ENROLL_CROP_X ((CAM_W - ENROLL_DISP_W) / 2)   // = 26
+// ---- Bang anh xa id -> ten, luu don gian tren SPIFFS ----
+typedef struct { uint16_t user_id; char name[FACE_ENGINE_NAME_LEN]; bool used; } user_name_entry_t;
+static user_name_entry_t s_users[MAX_USERS];
 
-
-static lv_obj_t   *s_cam_img = NULL;
-static lv_img_dsc_t s_cam_img_dsc;
-static uint16_t   *s_disp_buf = NULL;
-
-static HumanFaceDetect     *s_detect = nullptr;
-static HumanFaceRecognizer *s_recognizer = nullptr;
-
-static lv_obj_t    *s_enroll_img = NULL;
-static lv_img_dsc_t s_enroll_img_dsc;
-static uint16_t    *s_enroll_buf = NULL;
-static volatile bool s_enroll_requested = false;
-
-static void init_spiffs(void)
+static void user_db_load(void)
 {
-    esp_vfs_spiffs_conf_t conf = {
-        .base_path = "/spiffs",
-        .partition_label = "storage",
-        .max_files = 5,
-        .format_if_mount_failed = true
-    };
-    esp_err_t ret = esp_vfs_spiffs_register(&conf);
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Loi mount SPIFFS: %s", esp_err_to_name(ret));
-    else ESP_LOGI(TAG, "SPIFFS mount OK");
-}
-
-static void enroll_trigger_cb(lv_event_t *e)
-{
-    s_enroll_requested = true;
-    ESP_LOGI(TAG, "Da nhan lenh enroll, cho frame tiep theo co mat...");
-}
-
-static void create_enroll_image(void)
-{
-    s_enroll_buf = (uint16_t *)heap_caps_malloc(ENROLL_DISP_W * ENROLL_DISP_H * 2, MALLOC_CAP_SPIRAM);
-    memset(s_enroll_buf, 0, ENROLL_DISP_W * ENROLL_DISP_H * 2);
-
-    s_enroll_img_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
-    s_enroll_img_dsc.header.always_zero = 0;
-    s_enroll_img_dsc.header.w = ENROLL_DISP_W;
-    s_enroll_img_dsc.header.h = ENROLL_DISP_H;
-    s_enroll_img_dsc.data_size = ENROLL_DISP_W * ENROLL_DISP_H * 2;
-    s_enroll_img_dsc.data = (const uint8_t *)s_enroll_buf;
-
-    if (lvgl_port_lock(1000)) {
-        s_enroll_img = lv_img_create(ui_displayviewQR2);
-        lv_img_set_src(s_enroll_img, &s_enroll_img_dsc);
-        lv_obj_center(s_enroll_img);
-
-        // ui_displayviewQR2 mac dinh khong CLICKABLE (SquareLine tat) - bat lai
-        // bang API, khong sua file SquareLine sinh ra
-        lv_obj_add_flag(ui_displayviewQR2, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_event_cb(ui_displayviewQR2, enroll_trigger_cb, LV_EVENT_CLICKED, NULL);
-
-        lvgl_port_unlock();
-    }
-}
-
-// Ghi 1 dong "id,ten,ma" vao file danh sach user - phuc vu Subuser sau nay
-static void save_user_record(int id, const char *name, const char *code)
-{
-    FILE *f = fopen("/spiffs/users.csv", "a");
-    if (!f) { ESP_LOGE(TAG, "Khong mo duoc users.csv"); return; }
-    fprintf(f, "%d,%s,%s\n", id, name, code);
+    memset(s_users, 0, sizeof(s_users));
+    FILE *f = fopen(USER_NAME_DB_PATH, "rb");
+    if (!f) { ESP_LOGW(TAG, "Chua co user_names.bin, bat dau tu rong"); return; }
+    fread(s_users, sizeof(s_users), 1, f);
     fclose(f);
-    ESP_LOGI(TAG, "Da luu user: id=%d ten=%s ma=%s", id, name, code);
 }
-
-static void create_display_image(void)
+static void user_db_save(void)
 {
-    s_disp_buf = (uint16_t *)heap_caps_malloc(DISP_W * DISP_H * 2, MALLOC_CAP_SPIRAM);
-    memset(s_disp_buf, 0, DISP_W * DISP_H * 2);
-
-    s_cam_img_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
-    s_cam_img_dsc.header.always_zero = 0;
-    s_cam_img_dsc.header.w = DISP_W;
-    s_cam_img_dsc.header.h = DISP_H;
-    s_cam_img_dsc.data_size = DISP_W * DISP_H * 2;
-    s_cam_img_dsc.data = (const uint8_t *)s_disp_buf;
-
-    if (lvgl_port_lock(1000)) {
-        s_cam_img = lv_img_create(ui_displayliveviewcamera);
-        lv_img_set_src(s_cam_img, &s_cam_img_dsc);
-        lv_obj_center(s_cam_img);
-        lvgl_port_unlock();
+    FILE *f = fopen(USER_NAME_DB_PATH, "wb");
+    if (!f) { ESP_LOGE(TAG, "Khong ghi duoc user_names.bin"); return; }
+    fwrite(s_users, sizeof(s_users), 1, f);
+    fclose(f);
+}
+static const char* user_db_find_name(uint16_t id)
+{
+    for (int i = 0; i < MAX_USERS; i++)
+        if (s_users[i].used && s_users[i].user_id == id) return s_users[i].name;
+    return "Unknown";
+}
+static void user_db_add(uint16_t id, const char *name)
+{
+    for (int i = 0; i < MAX_USERS; i++) {
+        if (!s_users[i].used) {
+            s_users[i].used = true;
+            s_users[i].user_id = id;
+            strncpy(s_users[i].name, name, FACE_ENGINE_NAME_LEN - 1);
+            user_db_save();
+            return;
+        }
     }
+    ESP_LOGW(TAG, "Bang ten day (MAX_USERS=%d), khong them duoc", MAX_USERS);
 }
-
-static void swap_rgb565_bytes(uint16_t *buf, size_t pixel_count)
+static bool user_db_remove(uint16_t id)
 {
-    for (size_t i = 0; i < pixel_count; i++) buf[i] = (buf[i] >> 8) | (buf[i] << 8);
-}
-
-static void draw_rectangle(uint16_t *buf, int img_w, int img_h,
-                            int x1, int y1, int x2, int y2, uint16_t color)
-{
-    if (x1 < 0) x1 = 0;
-    if (y1 < 0) y1 = 0;
-    if (x2 >= img_w) x2 = img_w - 1;
-    if (y2 >= img_h) y2 = img_h - 1;
-    if (x1 > x2 || y1 > y2) return;
-    for (int x = x1; x <= x2; x++) { buf[y1 * img_w + x] = color; buf[y2 * img_w + x] = color; }
-    for (int y = y1; y <= y2; y++) { buf[y * img_w + x1] = color; buf[y * img_w + x2] = color; }
-}
-
-static ViewMode get_current_view_mode(void)
-{
-    if (lv_scr_act() == ui_Facerecognition) return VIEW_RECOGNIZE;
-    if (lv_scr_act() == ui_Adduser && !lv_obj_has_flag(ui_Panel1, LV_OBJ_FLAG_HIDDEN)) return VIEW_ENROLL;
-    return VIEW_NONE;
-}
-
-static void face_engine_task(void *arg)
-{
-    int frames_since_recognize = 0;
-    const int RECOGNIZE_EVERY_N_FRAMES = 10;
-    int frame_count = 0;
-    int64_t last_fps_log = esp_timer_get_time();
-    char last_status[32] = "";
-    char last_enroll_status[48] = "";
-
-    while (true) {
-        ViewMode mode = get_current_view_mode();
-        if (mode == VIEW_NONE) { vTaskDelay(pdMS_TO_TICKS(200)); continue; }
-
-        camera_fb_t *fb = cam_driver_get_frame();
-        if (!fb) { vTaskDelay(pdMS_TO_TICKS(50)); continue; }
-
-        size_t pixel_count = (size_t)fb->width * fb->height;
-        swap_rgb565_bytes((uint16_t *)fb->buf, pixel_count);
-
-        dl::image::img_t img;
-        img.data = fb->buf;
-        img.width = fb->width;
-        img.height = fb->height;
-        img.pix_type = dl::image::DL_IMAGE_PIX_TYPE_RGB565LE;
-
-        auto &results = s_detect->run(img);   // ca 2 che do deu can detect
-
-        for (auto &res : results) {
-            draw_rectangle((uint16_t *)fb->buf, fb->width, fb->height,
-                            res.box[0], res.box[1], res.box[2], res.box[3], 0xF800);
+    for (int i = 0; i < MAX_USERS; i++) {
+        if (s_users[i].used && s_users[i].user_id == id) {
+            s_users[i].used = false;
+            user_db_save();
+            return true;
         }
-
-        if (mode == VIEW_RECOGNIZE) {
-            // ---- Giu nguyen logic nhan dien cu ----
-            const char *status_text = "Not Face";
-            uint32_t status_color = 0x4DEF2D;
-            static char status_buf[32];
-
-            if (!results.empty()) {
-                frames_since_recognize++;
-                if (frames_since_recognize >= RECOGNIZE_EVERY_N_FRAMES) {
-                    auto rec_res = s_recognizer->recognize(img, results);
-                    if (!rec_res.empty()) {
-                        snprintf(status_buf, sizeof(status_buf), "ID %d (%.2f)", rec_res[0].id, rec_res[0].similarity);
-                        status_text = status_buf; status_color = 0x00AAFF;
-                        ESP_LOGI(TAG, "Nhan ra mat: ID=%d ,do tuong dong=%.2f", rec_res[0].id, rec_res[0].similarity);
-                    } else { status_text = "Khong nhan ra"; status_color = 0xFF9900; }
-                    frames_since_recognize = 0;
-                } else { status_text = "Da phat hien mat"; }
-            } else { frames_since_recognize = 0; }
-            
-            if (lvgl_port_lock(1000)) {
-                for (int y = 0; y < DISP_H; ++y) {
-                    memcpy(s_disp_buf + y * DISP_W, (uint16_t *)fb->buf + y * CAM_W + CROP_X, DISP_W * sizeof(uint16_t));
-                }
-                lv_obj_invalidate(s_cam_img);
-                if (strcmp(status_text, last_status) != 0) {
-                    lv_label_set_text(ui_statusFace, status_text);
-                    lv_obj_set_style_text_color(ui_statusFace, lv_color_hex(status_color), LV_PART_MAIN | LV_STATE_DEFAULT);
-                    strncpy(last_status, status_text, sizeof(last_status) - 1);
-                }
-                lvgl_port_unlock();
-            }
-        } 
-        else {
-            // ---- VIEW_ENROLL ----
-            const char *status_text = "Dat mat vao khung, bam OK de luu";
-            uint32_t status_color = 0x4DEF2D;
-            static char status_buf[48];
-
-            if (s_enroll_requested) {
-                if (!results.empty()) {
-                    int id = s_recognizer->enroll(img, results);
-                    // Lay ten/ma nguoi dung da nhap (ui_nav.c ghi thang vao 2 label nay)
-                    const char *name = lv_label_get_text(ui_NameAdduser);
-                    const char *code = lv_label_get_text(ui_Addusercode);
-                    save_user_record(id, name, code);
-                    snprintf(status_buf, sizeof(status_buf), "Da luu! ID=%d", id);
-                    status_text = status_buf; status_color = 0x00AAFF;
-                } else {
-                    status_text = "Chua thay mat, thu lai";
-                    status_color = 0xFF9900;
-                }
-                s_enroll_requested = false;
-            }
-
-            if (lvgl_port_lock(1000)) {
-                for (int y = 0; y < ENROLL_DISP_H; ++y) {
-                    memcpy(s_enroll_buf + y * ENROLL_DISP_W, (uint16_t *)fb->buf + y * CAM_W + ENROLL_CROP_X, ENROLL_DISP_W * sizeof(uint16_t));
-                }
-                lv_obj_invalidate(s_enroll_img);
-                if (strcmp(status_text, last_enroll_status) != 0) {
-                    lv_label_set_text(ui_statusFaceAdduser, status_text);
-                    lv_obj_set_style_text_color(ui_statusFaceAdduser, lv_color_hex(status_color), LV_PART_MAIN | LV_STATE_DEFAULT);
-                    strncpy(last_enroll_status, status_text, sizeof(last_enroll_status) - 1);
-                }
-                lvgl_port_unlock();
-            }
-        }
-
-        cam_driver_return_frame(fb);
-
-        frame_count++;
-        int64_t now = esp_timer_get_time();
-        if (now - last_fps_log >= 1000000) {
-            ESP_LOGI(TAG, "FPS: %d", frame_count);
-            frame_count = 0; last_fps_log = now;
-        }
-        vTaskDelay(1);
     }
+    return false;
 }
 
-void face_engine_init(void)
-{
-    init_spiffs();
-    create_display_image();
-    create_enroll_image();  
+// ---- Cooldown chong spam su kien ----
+typedef struct { face_event_type_t type; uint16_t user_id; int cx, cy; int64_t last_ms; bool used; } cooldown_slot_t;
+static cooldown_slot_t s_cooldown[FACE_ENGINE_MAX_RESULTS];
 
+static int64_t now_ms(void) { return esp_timer_get_time() / 1000; }
+
+static bool cooldown_should_emit(face_event_type_t type, uint16_t user_id, int cx, int cy)
+{
+    int64_t t = now_ms();
+    int free_slot = -1;
+    for (int i = 0; i < FACE_ENGINE_MAX_RESULTS; i++) {
+        if (!s_cooldown[i].used) { if (free_slot < 0) free_slot = i; continue; }
+        int dx = s_cooldown[i].cx - cx, dy = s_cooldown[i].cy - cy;
+        bool same_pos = (dx * dx + dy * dy) < (EVENT_POS_TOLERANCE * EVENT_POS_TOLERANCE);
+        if (s_cooldown[i].type == type && s_cooldown[i].user_id == user_id && same_pos) {
+            if (t - s_cooldown[i].last_ms < EVENT_COOLDOWN_MS) return false; // van con cooldown
+            s_cooldown[i].last_ms = t; s_cooldown[i].cx = cx; s_cooldown[i].cy = cy;
+            return true;
+        }
+    }
+    // khong tim thay slot cu khop -> tao slot moi (ghi de slot trong hoac slot 0 neu day)
+    int idx = (free_slot >= 0) ? free_slot : 0;
+    s_cooldown[idx] = { type, user_id, cx, cy, t, true };
+    return true;
+}
+
+// ---- Enroll 2 buoc: dong bo hoa qua semaphore vi lenh CAPTURE den tu task UART,
+//      con enroll thuc su chi thuc hien duoc trong task xu ly frame (co anh moi nhat) ----
+static SemaphoreHandle_t s_capture_done_sem = nullptr;
+static volatile bool     s_capture_requested = false;
+static volatile bool     s_last_capture_ok   = false;
+
+esp_err_t face_engine_init(void)
+{
     s_detect = new HumanFaceDetect();
+    // Model mac dinh lay tu app_state (co the da duoc load tu NVS)
+    // TODO: kiem tra constructor thuc te cua HumanFaceRecognizer co nhan
+    // model_type_t hay khong theo dung version esp-dl da keo ve; neu API
+    // khac, sua doan khoi tao nay cho khop.
     s_recognizer = new HumanFaceRecognizer("/spiffs/face.db");
+    s_capture_done_sem = xSemaphoreCreateBinary();
+    user_db_load();
+    memset(s_cooldown, 0, sizeof(s_cooldown));
+    ESP_LOGI(TAG, "face_engine init OK");
+    return ESP_OK;
+}
 
-    xTaskCreatePinnedToCore(face_engine_task, "face_engine_task", 8192, NULL, 4, NULL, 1);
-    ESP_LOGI(TAG, "face_engine_init xong");
+void face_engine_set_event_queue(void *queue_handle)
+{
+    s_event_queue = (QueueHandle_t)queue_handle;
+}
+
+void face_engine_switch_model(recog_model_t model)
+{
+    // TODO: xac nhan enum model_type_t thuc te cua HumanFaceFeat/HumanFaceRecognizer
+    // sau khi build lan dau roi map recog_model_t (app_state.h) sang dung enum do.
+    delete s_recognizer;
+    s_recognizer = new HumanFaceRecognizer("/spiffs/face.db"); // TODO: truyen them model type
+    app_state_set_model(model);
+    ESP_LOGI(TAG, "Da doi model nhan dien");
+}
+
+void face_engine_set_threshold(float threshold)
+{
+    // TODO: goi dung ham cua thu vien, vi du s_recognizer->set_thresh(threshold);
+    app_state_set_threshold(threshold);
+}
+
+void face_engine_add_user_start(uint16_t user_id, const char *name)
+{
+    app_state_begin_enroll(user_id, name);
+}
+
+bool face_engine_add_user_capture(void)
+{
+    if (!app_state_is_enrolling()) {
+        ESP_LOGW(TAG, "add_user_capture duoc goi nhung khong o trong che do enroll");
+        return false;
+    }
+    s_capture_requested = true;
+    // Cho toi da 2s de task xu ly frame thuc hien enroll xong
+    if (xSemaphoreTake(s_capture_done_sem, pdMS_TO_TICKS(2000)) != pdTRUE) {
+        ESP_LOGE(TAG, "Timeout cho enroll capture");
+        s_capture_requested = false;
+        return false;
+    }
+    return s_last_capture_ok;
+}
+
+void face_engine_add_user_cancel(void)
+{
+    s_capture_requested = false;
+    app_state_cancel_enroll();
+}
+
+bool face_engine_delete_user(uint16_t user_id)
+{
+    // TODO: goi them ham xoa feature vector trong thu vien nhan dien, vi du
+    // s_recognizer->delete_id(user_id); - ten ham can doi chieu voi header thuc te.
+    return user_db_remove(user_id);
+}
+
+int face_engine_list_users(user_info_t *out_list, int max_count)
+{
+    int n = 0;
+    for (int i = 0; i < MAX_USERS && n < max_count; i++) {
+        if (s_users[i].used) {
+            out_list[n].user_id = s_users[i].user_id;
+            strncpy(out_list[n].name, s_users[i].name, FACE_ENGINE_NAME_LEN - 1);
+            n++;
+        }
+    }
+    return n;
+}
+
+int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height,
+                               face_result_t *out_results)
+{
+    dl::image::img_t img;
+    img.data = rgb565_buf;
+    img.width = width;
+    img.height = height;
+    img.pix_type = dl::image::DL_IMAGE_PIX_TYPE_RGB565LE;
+
+    auto &results = s_detect->run(img);
+    int count = 0;
+
+    for (auto &res : results) {
+        if (count >= FACE_ENGINE_MAX_RESULTS) break;
+        out_results[count].x1 = res.box[0];
+        out_results[count].y1 = res.box[1];
+        out_results[count].x2 = res.box[2];
+        out_results[count].y2 = res.box[3];
+        out_results[count].matched = false;
+        out_results[count].user_id = 0xFFFF;
+        strncpy(out_results[count].name, "Unknown", FACE_ENGINE_NAME_LEN - 1);
+        out_results[count].similarity = 0.0f;
+        count++;
+    }
+
+    // --- Xu ly enroll neu co yeu cau capture dang cho ---
+    if (s_capture_requested && !results.empty()) {
+        enroll_state_t st = app_state_get_enroll_state();
+        int id = s_recognizer->enroll(img, results);
+        s_last_capture_ok = (id >= 0);
+        if (s_last_capture_ok) {
+            user_db_add(st.user_id, st.user_name);
+            ESP_LOGI(TAG, "Enroll OK, user_id=%d ten=%s", st.user_id, st.user_name);
+        } else {
+            ESP_LOGE(TAG, "Enroll that bai");
+        }
+        s_capture_requested = false;
+        app_state_cancel_enroll();
+        xSemaphoreGive(s_capture_done_sem);
+        return count; // bo qua buoc recognize/event trong chinh frame dung de enroll
+    }
+
+    // --- Nhan dien + phat su kien (chi xet khuon mat dau tien, giong logic goc) ---
+    if (!results.empty() && !app_state_is_enrolling()) {
+        s_frame_counter++;
+        if ((s_frame_counter % RECOG_FRAME_INTERVAL) == 0) {
+            auto rec_res = s_recognizer->recognize(img, results);
+            face_event_type_t evt_type = FACE_EVENT_STRANGER;
+            uint16_t evt_user_id = 0xFFFF;
+            const char *evt_name = "Unknown";
+
+            if (!rec_res.empty() && rec_res[0].similarity >= app_state_get_threshold()) {
+                evt_type = FACE_EVENT_LOGIN_SUCCESS;
+                evt_user_id = rec_res[0].id;
+                evt_name = user_db_find_name(evt_user_id);
+                out_results[0].matched = true;
+                out_results[0].user_id = evt_user_id;
+                out_results[0].similarity = rec_res[0].similarity;
+                strncpy(out_results[0].name, evt_name, FACE_ENGINE_NAME_LEN - 1);
+            }
+
+            ESP_LOGI(TAG, "Ket qua recognize [%s] - Matched: %s, ID: %d, Ten: %s, Score: %.2f",
+                     (evt_type == FACE_EVENT_LOGIN_SUCCESS) ? "SUCCESS" : "STRANGER",
+                     out_results[0].matched ? "YES" : "NO",
+                     evt_user_id,
+                     evt_name,
+                     out_results[0].similarity);
+
+            int cx = (out_results[0].x1 + out_results[0].x2) / 2;
+            int cy = (out_results[0].y1 + out_results[0].y2) / 2;
+
+            if (s_event_queue && cooldown_should_emit(evt_type, evt_user_id, cx, cy)) {
+                uint8_t *jpg_buf = nullptr;
+                size_t   jpg_len = 0;
+                if (fmt2jpg((uint8_t *)rgb565_buf, (size_t)width * height * 2,
+                            width, height, PIXFORMAT_RGB565, JPEG_QUALITY, &jpg_buf, &jpg_len)) {
+                    face_event_t evt = {};
+                    evt.type = evt_type;
+                    evt.user_id = evt_user_id;
+                    strncpy(evt.name, evt_name, FACE_ENGINE_NAME_LEN - 1);
+                    evt.jpeg_data = jpg_buf;   // comm_espnow phai free() sau khi gui xong
+                    evt.jpeg_len = jpg_len;
+                    if (xQueueSend(s_event_queue, &evt, 0) != pdTRUE) {
+                        ESP_LOGW(TAG, "event_queue day, bo qua su kien nay");
+                        free(jpg_buf);
+                    }
+                } else {
+                    ESP_LOGE(TAG, "Nen JPEG that bai cho anh su kien");
+                }
+            }
+        }
+        else if(results.empty()){
+            s_frame_counter = 0;
+        }
+    }
+
+    return count;
 }

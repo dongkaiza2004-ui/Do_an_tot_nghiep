@@ -1,39 +1,47 @@
-# project_face_cam
+# cam_node — Node A (ESP32-S3 + Camera + AI)
 
-Firmware ESP32-S3: camera + nhận diện khuôn mặt (detect/recognition),
-hiển thị TFT ST7735, điều khiển qua UART, truyền dữ liệu nặng qua
-ESP-NOW. Hỗ trợ đổi model và chỉnh threshold ngay lúc runtime.
+Firmware độc lập, chịu trách nhiệm: chụp ảnh, chạy AI phát hiện/nhận diện khuôn mặt,
+hiển thị stream trực tiếp lên TFT tại chỗ, tự động điều khiển đèn theo ánh sáng môi
+trường, nhận lệnh điều khiển từ Node B qua UART, và gửi ảnh sự kiện (người lạ / đăng
+nhập thành công) sang Node B qua ESP-NOW.
 
-## Cấu trúc thư mục
+Xem chi tiết `README.md` bên trong từng component để biết chức năng, input/output,
+API công khai.
 
-- **`CMakeLists.txt`** — file cấu hình project gốc (boilerplate bắt
-  buộc của ESP-IDF), khai báo tên project.
+## Sơ đồ luồng dữ liệu
 
-- **`partitions.csv`** — bảng phân vùng flash: `nvs`, `phy_init`,
-  `factory` (app + model rodata), `storage` (SPIFFS chứa face.db).
+```
+                         ┌─────────────┐
+                         │  light_ctrl  │  (chạy độc lập, không phụ thuộc luồng camera)
+                         └─────────────┘
 
-- **`sdkconfig`** — cấu hình build hiện tại (tự sinh bởi
-  `idf.py menuconfig`, không sửa tay), gồm flash size, model location,
-  model nào được flash...
+cam_driver ──frame──▶ face_engine ──(kết quả detect/recognize + event)──┐
+                                                                          │
+                          ┌───────────────────────────────────────────────┤
+                          ▼                                              ▼
+                  overlay_render (vẽ box/tên/FPS/hint)            comm_espnow
+                          │                                        (gửi ảnh sự kiện
+                          ▼                                         kèm metadata,
+                  display_driver (TFT local)                       chỉ khi có event)
 
-- **`main/`** — entry point, chỉ init hệ thống và tạo task, không chứa
-  logic nghiệp vụ. Chi tiết xem `main/README.md`.
+comm_uart ◀──lệnh điều khiển từ Node B── (đổi model, threshold, config cam,
+                                            add/sub user, show_fps, start/stop...)
+comm_uart ──ACK / kết quả / user list──▶ Node B
 
-- **`managed_components/`** — component bên thứ 3, do ESP Component
-  Manager tự tải theo `main/idf_component.yml`. **Không chỉnh sửa tay.**
-  Gồm camera driver, model detect/recognition, driver màn hình, các thư
-  viện esp-dl/jpeg đi kèm.
+app_state: nơi lưu trạng thái runtime dùng chung (model, threshold, brightness,
+contrast, flip, mirror, show_fps, enroll_state...). Mọi component đọc/ghi qua đây,
+không tự giữ biến riêng, tránh lệch trạng thái giữa các module.
+```
 
-- **`components/`** — component tự viết, chia theo tầng trách nhiệm để
-  dễ bảo trì và mở rộng. Mỗi thư mục con có README riêng mô tả chi tiết:
-  - `app_config/` — nguồn cấu hình runtime duy nhất (model đang chọn,
-    threshold, lưu NVS).
-  - `cam_driver/` — thu khung hình từ camera, đẩy vào queue.
-  - `display_driver/` — lớp vẽ nguyên thủy lên TFT ST7735.
-  - `face_engine/` — quản lý model detect/recognition, enroll/recognize,
-    đổi model runtime.
-  - `ui_menu/` — giao diện menu trên TFT (chọn model, chỉnh threshold,
-    enroll...).
-  - `comm_uart/` — nhận/gửi bản tin điều khiển ngắn qua UART.
-  - `comm_espnow/` — truyền dữ liệu nặng (ảnh) qua ESP-NOW, có
-    chia/ráp gói.
+## Danh sách component
+
+| Component | Vai trò tóm tắt |
+|---|---|
+| `app_state` | Nguồn sự thật duy nhất cho cấu hình/trạng thái runtime, lưu NVS |
+| `cam_driver` | Khởi tạo & điều khiển phần cứng camera, task chụp frame |
+| `face_engine` | Detect + recognize khuôn mặt, quản lý user DB, phân loại sự kiện |
+| `overlay_render` | Vẽ box/tên/FPS/hướng dẫn enroll lên bitmap |
+| `display_driver` | Driver TFT ST7735 mức thấp (raw bitmap, không LVGL) |
+| `light_ctrl` | Đọc cảm biến ánh sáng, tự bật/tắt đèn |
+| `comm_uart` | Nhận lệnh điều khiển, gửi phản hồi cho Node B |
+| `comm_espnow` | Nén JPEG + gửi ảnh sự kiện sang Node B |
