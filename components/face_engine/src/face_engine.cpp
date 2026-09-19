@@ -30,11 +30,19 @@ static const char *TAG = "face_engine";
 #define EVENT_POS_TOLERANCE 24     // px, coi la "cung 1 khuon mat" neu tam box lech duoi nguong nay
 #define JPEG_QUALITY         30    // 0-100, thap hon = nen nhieu hon/nhe hon nhung xau hon
 #define RECOG_FRAME_INTERVAL  50    // Số frame cách nhau giữa mỗi lần nhận diện (10 lần detect mới recognize 1 lần)
+#define RESULT_PERSIST_FRAMES  40
 
 static HumanFaceDetect      *s_detect     = nullptr;
 static HumanFaceRecognizer  *s_recognizer = nullptr;
 static QueueHandle_t         s_event_queue = nullptr;
 static uint32_t              s_frame_counter = 0;
+
+//      lai trong vai frame tiep theo (xem RESULT_PERSIST_FRAMES) ----
+static bool     s_last_matched    = false;
+static uint16_t s_last_user_id    = 0xFFFF;
+static char     s_last_name[FACE_ENGINE_NAME_LEN] = "Detecting";
+static float    s_last_similarity = 0.0f;
+static int      s_persist_left    = 0;   // con lai bao nhieu frame nua thi con duoc dung s_last_*
 
 // ---- Bang anh xa id -> ten, luu don gian tren SPIFFS ----
 typedef struct { uint16_t user_id; char name[FACE_ENGINE_NAME_LEN]; bool used; } user_name_entry_t;
@@ -221,11 +229,22 @@ int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height,
         out_results[count].y2 = res.box[3];
         out_results[count].matched = false;
         out_results[count].user_id = 0xFFFF;
-        strncpy(out_results[count].name, "Unknown", FACE_ENGINE_NAME_LEN - 1);
+        strncpy(out_results[count].name, "Detecting", FACE_ENGINE_NAME_LEN - 1);
         out_results[count].similarity = 0.0f;
         count++;
     }
 
+    if (count >= 1 && s_persist_left > 0) {
+        out_results[0].matched    = s_last_matched;
+        out_results[0].user_id    = s_last_user_id;
+        out_results[0].similarity = s_last_similarity;
+        strncpy(out_results[0].name, s_last_name, FACE_ENGINE_NAME_LEN - 1);
+        s_persist_left--;
+    }
+    if (results.empty()) {
+        // Mat da roi khoi khung hinh -> khong "keo dai" ten cu sang lan xuat hien sau
+        s_persist_left = 0;
+    }
     // --- Xu ly enroll neu co yeu cau capture dang cho ---
     if (s_capture_requested && !results.empty()) {
         enroll_state_t st = app_state_get_enroll_state();
@@ -261,6 +280,18 @@ int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height,
                 out_results[0].similarity = rec_res[0].similarity;
                 strncpy(out_results[0].name, evt_name, FACE_ENGINE_NAME_LEN - 1);
             }
+            else {
+                out_results[0].matched = false;
+                out_results[0].user_id = evt_user_id;   // 0xFFFF
+                out_results[0].similarity = rec_res.empty() ? 0.0f : rec_res[0].similarity;
+                strncpy(out_results[0].name, evt_name, FACE_ENGINE_NAME_LEN - 1); // "Unknown"
+            }
+
+            s_last_matched    = out_results[0].matched;
+            s_last_user_id    = out_results[0].user_id;
+            s_last_similarity = out_results[0].similarity;
+            strncpy(s_last_name, out_results[0].name, FACE_ENGINE_NAME_LEN - 1);
+            s_persist_left    = RESULT_PERSIST_FRAMES;
 
             ESP_LOGI(TAG, "Ket qua recognize [%s] - Matched: %s, ID: %d, Ten: %s, Score: %.2f",
                      (evt_type == FACE_EVENT_LOGIN_SUCCESS) ? "SUCCESS" : "STRANGER",

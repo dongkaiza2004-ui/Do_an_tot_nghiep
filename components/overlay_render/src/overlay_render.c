@@ -17,6 +17,44 @@
 #include "overlay_render.h"
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
+
+// ---- Font chu cai A-Z dang 5x7 (5 cot x 7 hang), moi ky tu = 5 byte (1 byte/cot,
+// bit0 = hang tren cung). Sinh tu bang pixel "khoi" ro rang (xem gen_font.py di kem
+// commit), da kiem tra bang code chu khong go tay tung bit -> tranh sai lech.
+// Chu thuong duoc quy ve chu hoa truoc khi tra bang (toupper) de khong phai luu
+// gap doi so glyph.
+typedef struct { char c; uint8_t col[5]; } glyph5x7_t;
+
+static const glyph5x7_t FONT_5X7[] = {
+    {'A', {0x7E,0x09,0x09,0x09,0x7E}},
+    {'B', {0x7F,0x49,0x49,0x49,0x36}},
+    {'C', {0x3E,0x41,0x41,0x41,0x41}},
+    {'D', {0x7F,0x41,0x41,0x41,0x3E}},
+    {'E', {0x7F,0x49,0x49,0x49,0x41}},
+    {'F', {0x7F,0x09,0x09,0x09,0x01}},
+    {'G', {0x3E,0x41,0x49,0x49,0x79}},
+    {'H', {0x7F,0x08,0x08,0x08,0x7F}},
+    {'I', {0x41,0x41,0x7F,0x41,0x41}},
+    {'J', {0x20,0x40,0x41,0x3F,0x01}},
+    {'K', {0x7F,0x08,0x14,0x22,0x41}},
+    {'L', {0x7F,0x40,0x40,0x40,0x40}},
+    {'M', {0x7F,0x02,0x04,0x02,0x7F}},
+    {'N', {0x7F,0x02,0x04,0x08,0x7F}},
+    {'O', {0x3E,0x41,0x41,0x41,0x3E}},
+    {'P', {0x7F,0x09,0x09,0x09,0x06}},
+    {'Q', {0x3E,0x41,0x51,0x21,0x5E}},
+    {'R', {0x7F,0x09,0x19,0x29,0x46}},
+    {'S', {0x46,0x49,0x49,0x49,0x31}},
+    {'T', {0x01,0x01,0x7F,0x01,0x01}},
+    {'U', {0x3F,0x40,0x40,0x40,0x3F}},
+    {'V', {0x1F,0x20,0x40,0x20,0x1F}},
+    {'W', {0x7F,0x20,0x18,0x20,0x7F}},
+    {'X', {0x63,0x14,0x08,0x14,0x63}},
+    {'Y', {0x03,0x04,0x78,0x04,0x03}},
+    {'Z', {0x61,0x51,0x49,0x45,0x43}},
+};
+#define FONT_5X7_COUNT (sizeof(FONT_5X7) / sizeof(FONT_5X7[0]))
 
 // ---- Font so hoc 3x5 (3 cot x 5 hang), moi ky tu = 3 byte (1 byte/cot, bit0=hang tren cung) ----
 typedef struct { char c; uint8_t col[3]; } glyph3x5_t;
@@ -62,31 +100,54 @@ static void draw_rect(uint16_t *buf, int width, int height,
     }
 }
 
-// Ve 1 ky tu tai (x,y) goc tren-trai, scale nguyen lan (scale=1 -> 3x5 px that).
-// Ky tu khong co trong FONT_3X5 -> ve 1 o vuong nho thay the (xem ghi chu dau file).
+// Ve 1 ky tu tai (x,y) goc tren-trai, scale nguyen lan.
+// Uu tien tra bang chu cai 5x7 (chu thuong -> hoa truoc khi tra), sau do moi
+// toi font so 3x5. Chi ky tu THAT SU khong co trong ca 2 bang (vd ky tu unicode
+// la) moi roi ve o vuong placeholder.
 static int draw_char(uint16_t *buf, int width, int height, int x, int y,
                       char c, uint16_t color, int scale)
 {
-    const glyph3x5_t *g = NULL;
-    for (size_t i = 0; i < FONT_3X5_COUNT; i++) {
-        if (FONT_3X5[i].c == c) { g = &FONT_3X5[i]; break; }
+    char cu = (char)toupper((unsigned char)c);
+
+    const glyph5x7_t *g5 = NULL;
+    for (size_t i = 0; i < FONT_5X7_COUNT; i++) {
+        if (FONT_5X7[i].c == cu) { g5 = &FONT_5X7[i]; break; }
     }
-    if (!g) {
-        // Placeholder: o vuong nho bao "co chu nhung font chua ho tro"
-        draw_rect(buf, width, height, x, y, x + 2 * scale, y + 4 * scale, color);
-        return 4 * scale; // be rong da chiem (3 cot + 1 khoang cach) * scale
-    }
-    for (int col = 0; col < 3; col++) {
-        for (int row = 0; row < 5; row++) {
-            if (g->col[col] & (1 << row)) {
-                for (int sx = 0; sx < scale; sx++)
-                    for (int sy = 0; sy < scale; sy++)
-                        put_pixel(buf, width, height,
-                                  x + col * scale + sx, y + row * scale + sy, color);
+    if (g5) {
+        for (int col = 0; col < 5; col++) {
+            for (int row = 0; row < 7; row++) {
+                if (g5->col[col] & (1 << row)) {
+                    for (int sx = 0; sx < scale; sx++)
+                        for (int sy = 0; sy < scale; sy++)
+                            put_pixel(buf, width, height,
+                                      x + col * scale + sx, y + row * scale + sy, color);
+                }
             }
         }
+        return 6 * scale; // 5 cot + 1 cot khoang cach, nhan scale
     }
-    return 4 * scale; // 3 cot + 1 cot khoang cach, nhan scale
+
+    const glyph3x5_t *g3 = NULL;
+    for (size_t i = 0; i < FONT_3X5_COUNT; i++) {
+        if (FONT_3X5[i].c == c) { g3 = &FONT_3X5[i]; break; }
+    }
+    if (g3) {
+        for (int col = 0; col < 3; col++) {
+            for (int row = 0; row < 5; row++) {
+                if (g3->col[col] & (1 << row)) {
+                    for (int sx = 0; sx < scale; sx++)
+                        for (int sy = 0; sy < scale; sy++)
+                            put_pixel(buf, width, height,
+                                      x + col * scale + sx, y + row * scale + sy, color);
+                }
+            }
+        }
+        return 4 * scale; // 3 cot + 1 cot khoang cach, nhan scale
+    }
+
+    // Placeholder: o vuong nho bao "co chu nhung font chua ho tro" (vd ky tu dac biet)
+    draw_rect(buf, width, height, x, y, x + 2 * scale, y + 4 * scale, color);
+    return 4 * scale;
 }
 
 static void draw_text(uint16_t *buf, int width, int height, int x, int y,

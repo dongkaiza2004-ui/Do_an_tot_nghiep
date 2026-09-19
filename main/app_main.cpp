@@ -136,12 +136,12 @@ extern "C" void app_main(void)
     ESP_ERROR_CHECK(light_ctrl_init());
 
     s_wifi_init_done = xSemaphoreCreateBinary();
-    // xTaskCreatePinnedToCore(core0_wifi_init_task, "wifi_init_c0", 4096, NULL, 5, NULL, 0);
-    // xSemaphoreTake(s_wifi_init_done, portMAX_DELAY);
+    xTaskCreatePinnedToCore(core0_wifi_init_task, "wifi_init_c0", 4096, NULL, 5, NULL, 0);
+    xSemaphoreTake(s_wifi_init_done, portMAX_DELAY);
 
     ESP_ERROR_CHECK(comm_uart_init(UART_PORT, UART_TX_PIN, UART_RX_PIN, UART_BAUD));
 
-    // face_engine_set_event_queue(comm_espnow_get_event_queue());
+    face_engine_set_event_queue(comm_espnow_get_event_queue());
 
     static QueueHandle_t frame_queue;
     frame_queue = xQueueCreate(1, sizeof(camera_fb_t *));
