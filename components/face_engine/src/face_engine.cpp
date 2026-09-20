@@ -28,7 +28,7 @@ static const char *TAG = "face_engine";
 // Configuration
 //==================================================
 
-#define USER_NAME_DB_PATH       "/spiffs/user_names.bin"
+static char s_names_path[40] = "/spiffs/user_names_mfn.bin";
 #define MAX_USERS               32
 #define EVENT_COOLDOWN_MS       10000
 #define EVENT_POS_TOLERANCE     24
@@ -71,13 +71,22 @@ typedef struct {
 static user_name_entry_t s_users[MAX_USERS];
 
 //==================================================
+// Set Database
+//==================================================
+
+static const char* names_path_for_model(recog_model_t model)
+{
+    return (model == RECOG_MODEL_MBF_S8_V1) ? "/spiffs/user_names_mbf.bin" : "/spiffs/user_names_mfn.bin";
+}
+
+//==================================================
 // User Database
 //==================================================
 
 static void user_db_load(void)
 {
     memset(s_users, 0, sizeof(s_users));
-    FILE *f = fopen(USER_NAME_DB_PATH, "rb");
+    FILE *f = fopen(s_names_path, "rb");
     if (!f) {
         ESP_LOGW(TAG, "Chua co user_names.bin, bat dau tu rong");
         return;
@@ -88,7 +97,7 @@ static void user_db_load(void)
 
 static void user_db_save(void)
 {
-    FILE *f = fopen(USER_NAME_DB_PATH, "wb");
+    FILE *f = fopen(s_names_path, "wb");
     if (!f) {
         ESP_LOGE(TAG, "Khong ghi duoc user_names.bin");
         return;
@@ -127,7 +136,14 @@ static void user_db_add(uint16_t id, uint16_t feat_id, const char *name)
 
     ESP_LOGW(TAG, "Bang ten day (MAX_USERS=%d), khong them duoc", MAX_USERS);
 }
+//==================================================
+// Chose model
+//==================================================
 
+static const char* db_path_for_model(recog_model_t model)
+{
+    return (model == RECOG_MODEL_MBF_S8_V1) ? "/spiffs/face_mbf.db" : "/spiffs/face_mfn.db";
+}
 
 //==================================================
 // Event Cooldown
@@ -203,7 +219,9 @@ static volatile bool s_last_capture_ok = false;
 esp_err_t face_engine_init(void)
 {
     s_detect = new HumanFaceDetect();
-    s_recognizer = new HumanFaceRecognizer("/spiffs/face.db");
+    recog_model_t model = app_state_get_model();
+    s_recognizer = new HumanFaceRecognizer(db_path_for_model(model),
+                                        (HumanFaceFeat::model_type_t)model);
     s_capture_done_sem = xSemaphoreCreateBinary();
 
     user_db_load();
@@ -235,9 +253,13 @@ void face_engine_set_uart_report_cb(face_uart_report_cb_t cb)
 void face_engine_switch_model(recog_model_t model)
 {
     delete s_recognizer;
-    s_recognizer = new HumanFaceRecognizer("/spiffs/face.db");
+    strncpy(s_names_path, names_path_for_model(model), sizeof(s_names_path) - 1);   // <-- THEM DONG NAY
+    s_recognizer = new HumanFaceRecognizer(db_path_for_model(model),
+                                            (HumanFaceFeat::model_type_t)model);
+    user_db_load();
     app_state_set_model(model);
-    ESP_LOGI(TAG, "Da doi model nhan dien");
+    ESP_LOGI(TAG, "Da doi model nhan dien -> %s",
+             model == RECOG_MODEL_MBF_S8_V1 ? "MBF_S8_V1" : "MFN_S8_V1");
 }
 
 void face_engine_set_threshold(float threshold)
