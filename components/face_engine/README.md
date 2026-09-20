@@ -68,3 +68,19 @@ typedef struct {
   nhau xuất hiện gần nhau về thời gian có thể bị bỏ sót sự kiện của người thứ 2.
 - Nên nén JPEG **ngay tại đây** (không phải ở `comm_espnow`) vì `face_engine` là nơi có sẵn
   frame gốc + biết chính xác thời điểm cần chụp; `comm_espnow` chỉ nên lo việc fragment và gửi.
+- Nhớ sửa bỏ comment trong managed_components/espressif__esp-dl/vision/recognition/dl_recognition_database.cpp, trong query_feat():
+        // results.emplace_back(it->id, sim);
+        results.emplace_back(i, sim);
+- dl_recognition_database.hpp, thêm vào public: (cạnh get_num_feats()):
+    uint16_t get_last_feat_id() { return m_feats.empty() ? 0 : m_feats.back().id; }    
+- managed_components/espressif__human_face_recognition/human_face_recognition.hpp, thêm khai báo trong class HumanFaceRecognizer (cạnh get_num_feats()):
+    uint16_t get_last_feat_id();
+- managed_components/espressif__human_face_recognition/human_face_recognition.cpp, thêm implementation (copy đúng khuôn với get_num_feats() ngay phía trên nó):
+uint16_t HumanFaceRecognizer::get_last_feat_id()
+{
+    if (!m_db) {
+        m_db = new dl::recognition::DataBase(m_db_path, m_feat.get_feat_len());
+    }
+    return m_db->get_last_feat_id();
+}
+-   

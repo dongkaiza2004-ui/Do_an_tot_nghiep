@@ -1,55 +1,88 @@
 // light_ctrl.c
+
 #include "light_ctrl.h"
 #include "app_state.h"
+
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "esp_adc/adc_oneshot.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+
+//==================================================
+// Logging
+//==================================================
+
 static const char *TAG = "light_ctrl";
 
-#define LIGHT_ADC_UNIT    ADC_UNIT_1
-#define LIGHT_ADC_CHANNEL ADC_CHANNEL_2   // TODO: doi cho dung chan ADC noi LDR thuc te
+//==================================================
+// Light Sensor Configuration
+//==================================================
 
-// Hysteresis: bat den khi duoi nguong - HYST, tat khi tren nguong + HYST,
-// tranh nhap nhay lien tuc khi anh sang dao dong quanh nguong.
-#define LIGHT_HYSTERESIS 15
+#define LIGHT_ADC_UNIT     ADC_UNIT_1
+#define LIGHT_ADC_CHANNEL  ADC_CHANNEL_2  
+#define LIGHT_HYSTERESIS   15
+
+//==================================================
+// Runtime State
+//==================================================
 
 static adc_oneshot_unit_handle_t s_adc_handle;
 static bool s_light_on = false;
 
+//==================================================
+// Forward Declaration
+//==================================================
+
+static int light_ctrl_read_raw(void);
+static void light_task(void *arg);
+
+//==================================================
+// Initialization
+//==================================================
+
 esp_err_t light_ctrl_init(void)
 {
     gpio_config_t io_conf = {0};
+
     io_conf.pin_bit_mask = (1ULL << LIGHT_LED_GPIO);
     io_conf.mode = GPIO_MODE_OUTPUT;
     gpio_config(&io_conf);
     gpio_set_level(LIGHT_LED_GPIO, 0);
 
-    adc_oneshot_unit_init_cfg_t init_cfg = { .unit_id = LIGHT_ADC_UNIT };
-    ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_cfg, &s_adc_handle));
+    //==================================================
+    // ADC Configuration
+    //==================================================
 
+    adc_oneshot_unit_init_cfg_t init_cfg = {.unit_id = LIGHT_ADC_UNIT};
+    ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_cfg, &s_adc_handle));
     adc_oneshot_chan_cfg_t chan_cfg = {
         .atten = ADC_ATTEN_DB_12,
         .bitwidth = ADC_BITWIDTH_DEFAULT,
     };
-    ESP_ERROR_CHECK(adc_oneshot_config_channel(s_adc_handle, LIGHT_ADC_CHANNEL, &chan_cfg));
 
+    ESP_ERROR_CHECK(adc_oneshot_config_channel(s_adc_handle, LIGHT_ADC_CHANNEL, &chan_cfg));
     ESP_LOGI(TAG, "Light sensor (LDR/ADC) init OK - chan biet doi neu dung cam bien I2C");
+
     return ESP_OK;
 }
 
-// Doc gia tri tho tu ADC va quy doi tuong doi ve thang "lux-like".
-// LUU Y: day la quy doi TUONG DOI (khong phai lux chuan), chi du de so sanh
-// nguong bat/tat den. Neu can gia tri lux chinh xac, phai hieu chinh cong
-// thuc theo datasheet LDR + dien tro keo cu the dang dung.
+//==================================================
+// Light Sensor Reading
+//==================================================
+
 static int light_ctrl_read_raw(void)
 {
     int raw = 0;
     adc_oneshot_read(s_adc_handle, LIGHT_ADC_CHANNEL, &raw);
-    return raw; // 0..4095 tuy do phan giai ADC cau hinh
+    return raw;
 }
+
+//==================================================
+// Light Control Task
+//==================================================
 
 static void light_task(void *arg)
 {
@@ -60,16 +93,23 @@ static void light_task(void *arg)
         if (!s_light_on && level < (threshold - LIGHT_HYSTERESIS)) {
             gpio_set_level(LIGHT_LED_GPIO, 1);
             s_light_on = true;
+
             ESP_LOGI(TAG, "Troi toi (raw=%d) -> BAT den", level);
-        } else if (s_light_on && level > (threshold + LIGHT_HYSTERESIS)) {
+        }
+        else if (s_light_on && level > (threshold + LIGHT_HYSTERESIS)) {
             gpio_set_level(LIGHT_LED_GPIO, 0);
             s_light_on = false;
+
             ESP_LOGI(TAG, "Du sang (raw=%d) -> TAT den", level);
         }
 
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
+
+//==================================================
+// Light Control
+//==================================================
 
 void light_ctrl_start(void)
 {
