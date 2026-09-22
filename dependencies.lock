@@ -1,0 +1,255 @@
+dependencies:
+  espressif/button:
+    component_hash: a1f34e8ed2e61ffef1a230fd9477005c2db335c7e1f6a239f43e5f119dcbe1b0
+    dependencies:
+    - name: espressif/cmake_utilities
+      registry_url: https://components.espressif.com
+      require: private
+      version: '*'
+    - name: idf
+      require: private
+      version: '>=4.0'
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 4.2.1
+  espressif/cbor:
+    component_hash: dad9ca860963e930366510a10b422b3125a4fb27b979712ed65efcbcd742de50
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 0.6.1~4
+  espressif/cjson:
+    component_hash: e788323270d90738662d66fffa910bfe1fba019bba087f01557e70c40485b469
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.7.19~2
+  espressif/cmake_utilities:
+    component_hash: 05165f30922b422b4b90c08845e6d449329b97370fbd06309803d8cb539d79e3
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.1'
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 1.1.1
+  espressif/esp_aliro_lib:
+    component_hash: ec9fc97430fea6a625fab5c5cc65e77d2111b3c42941467f3e5be7d6e91c90b1
+    dependencies:
+    - name: espressif/cbor
+      registry_url: https://components.espressif.com
+      require: private
+      version: 0.6.1~4
+    - name: idf
+      require: private
+      version: '>=5.2,<6.1'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.2.0
+  espressif/esp_bsp_devkit:
+    component_hash: 5f0719d45754228ee18436f176588a49735f2c48d9eadeebb02a2aca626fe4d9
+    dependencies:
+    - name: espressif/button
+      registry_url: https://components.espressif.com
+      require: public
+      version: ^4
+    - name: idf
+      require: private
+      version: '>=5.2'
+    - name: espressif/led_indicator
+      registry_url: https://components.espressif.com
+      require: public
+      version: ~2.0
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 3.0.3
+  espressif/esp_delta_ota:
+    component_hash: 147161b602ef51e9f6649eb6d90c4d4ac3c94228cb264fa0e68be7877180462d
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.3'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.1.4
+  espressif/esp_encrypted_img:
+    component_hash: a3d20984246263bf8f3fabb0cf5ced72e1499dcc0073fc7334646c0882fd1b3c
+    dependencies:
+    - name: espressif/esp_secure_cert_mgr
+      registry_url: https://components.espressif.com
+      require: private
+      rules:
+      - if: idf_version >= 5.3
+      version: '>=2.5.1'
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 2.7.0
+  espressif/esp_secure_cert_mgr:
+    component_hash: 0b83e150f48d6839f0a0a8753850be55a51cc298cfca7658f21d355d5f41dd67
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.3'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 2.9.3
+  espressif/led_indicator:
+    component_hash: d6bc9ee6770ed802b7a44a793bde0c7de4904d5d3c5ec1f363e2b4e1cda79bac
+    dependencies:
+    - name: espressif/cmake_utilities
+      registry_url: https://components.espressif.com
+      require: private
+      version: '*'
+    - name: idf
+      require: private
+      version: '>=5.0'
+    - name: espressif/led_strip
+      registry_url: https://components.espressif.com
+      require: public
+      version: 3.*
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 2.0.2
+  espressif/led_strip:
+    component_hash: 28621486f77229aaf81c71f5e15d6fbf36c2949cf11094e07090593e659e7639
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 3.0.3
+  espressif/mdns:
+    component_hash: b679eafd0acae2066e2645bd91d073e33ca5be515e2545cd3c4e55a3e3bce3cb
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.13.1
+  idf:
+    source:
+      type: idf
+    version: 5.4.1
+  m5nfc:
+    component_hash: 66f01a566ea1e3314b68e2e7c33fbe8e345eafbbd19c7cd4048ee3cc1c453f19
+    dependencies:
+    - name: idf
+      version: '>=5.2'
+    - git: https://github.com/m5stack/M5Unit-NFC.git
+      name: m5stack/M5Unit-NFC
+      version: 93745b547364f310cd64b5155a870103a7800a5d
+    source:
+      git: https://github.com/espressif/esp-aliro.git
+      path: examples/aliro_reader/components/m5nfc
+      type: git
+    version: db6bc8ea93854b730b9163d2472dfa7bff86a280
+  m5stack/M5HAL:
+    component_hash: 4745f7f657de5c18bdaccc42bf6f4f924e563182917e60b41b525d8674495cb8
+    dependencies:
+    - name: idf
+      version: '>=5.0'
+    - git: https://github.com/m5stack/M5Utility.git
+      name: m5stack/M5Utility
+      version: main
+    source:
+      git: https://github.com/m5stack/M5HAL.git
+      path: .
+      type: git
+    targets:
+    - esp32
+    - esp32s3
+    - esp32c3
+    - esp32c6
+    - esp32p4
+    - esp32h2
+    version: 0f06f9d3134706ce030fd5515601cce65a267233
+  m5stack/M5Unit-NFC:
+    component_hash: 8aeb479acacdcbec24dcbb5ae8decf8748db885721563e990887a680fff78591
+    dependencies:
+    - name: idf
+      version: '>=5.0'
+    - git: https://github.com/m5stack/M5UnitUnified.git
+      name: m5stack/M5UnitUnified
+      version: main
+    source:
+      git: https://github.com/m5stack/M5Unit-NFC.git
+      path: .
+      type: git
+    targets:
+    - esp32
+    - esp32s3
+    - esp32c3
+    - esp32c6
+    - esp32h2
+    - esp32p4
+    version: 93745b547364f310cd64b5155a870103a7800a5d
+  m5stack/M5UnitUnified:
+    component_hash: bf2b053986ae9b586622200f1782e659ac3e9e412794faba27bcf8574bc22146
+    dependencies:
+    - name: idf
+      version: '>=5.0'
+    - git: https://github.com/m5stack/M5HAL.git
+      name: m5stack/M5HAL
+      version: main
+    - git: https://github.com/m5stack/M5Utility.git
+      name: m5stack/M5Utility
+      version: main
+    source:
+      git: https://github.com/m5stack/M5UnitUnified.git
+      path: .
+      type: git
+    targets:
+    - esp32
+    - esp32s3
+    - esp32c3
+    - esp32c6
+    - esp32p4
+    - esp32h2
+    version: bf711f370047cf16355b00005450ef615fab36e2
+  m5stack/M5Utility:
+    component_hash: 4cbc048429ea8064ed0ab4c61f27d9d49695256337c3096a935cbd544cdef90b
+    dependencies:
+    - name: idf
+      version: '>=5.0'
+    source:
+      git: https://github.com/m5stack/M5Utility.git
+      path: .
+      type: git
+    version: 301a6b5c6413875e1dd80b027e0639921972b433
+direct_dependencies:
+- espressif/cjson
+- espressif/esp_aliro_lib
+- espressif/esp_bsp_devkit
+- espressif/esp_delta_ota
+- espressif/esp_encrypted_img
+- espressif/esp_secure_cert_mgr
+- espressif/led_indicator
+- espressif/led_strip
+- espressif/mdns
+- m5nfc
+manifest_hash: 2f82fe3af856c90a34cde5bfcac0260bc6b633a480cc03a884b907fc12a81376
+target: esp32s3
+version: 2.0.0
