@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Door Lock Dashboard</title>
+<style>
+  :root {
+    --bg: #12161c;
+    --panel: #1b212b;
+    --border: #2a3341;
+    --text: #e6e9ef;
+    --muted: #8b96a5;
+    --accent: #4f8cff;
+    --ok: #3ecf8e;
+    --err: #ff5d6c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 16px;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 20px; margin: 8px 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 10px; color: var(--muted); font-weight: 600; letter-spacing: .02em; text-transform: uppercase; }
+  .status-line { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+  .status-line .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; background: var(--muted); }
+  .status-line .dot.ok { background: var(--ok); }
+  .status-line .dot.err { background: var(--err); }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+  label { font-size: 12px; color: var(--muted); display:block; margin-bottom: 3px; }
+  input[type=text], input[type=number] {
+    background: #0e1218; border: 1px solid var(--border); color: var(--text);
+    border-radius: 6px; padding: 7px 9px; font-size: 14px; width: 100%;
+  }
+  .field { flex: 1; min-width: 90px; }
+  button {
+    background: var(--accent); color: white; border: none; border-radius: 6px;
+    padding: 8px 14px; font-size: 13px; cursor: pointer; white-space: nowrap;
+  }
+  button:hover { filter: brightness(1.1); }
+  button.secondary { background: #2a3341; }
+  button.danger { background: var(--err); }
+  button:active { transform: translateY(1px); }
+  .checkbox-row { display:flex; align-items:center; gap:6px; font-size:13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; }
+  .tag { display:inline-block; padding: 2px 7px; border-radius: 10px; font-size: 11px; }
+  .tag.granted { background: rgba(62,207,142,.15); color: var(--ok); }
+  .tag.denied, .tag.liveness_fail { background: rgba(255,93,108,.15); color: var(--err); }
+  .tag.unknown_face { background: rgba(139,150,165,.2); color: var(--muted); }
+  a.imglink { color: var(--accent); text-decoration: none; font-size: 12px; }
+  .msg { font-size: 12px; margin-top: 6px; min-height: 16px; }
+  .msg.ok { color: var(--ok); }
+  .msg.err { color: var(--err); }
+  .muted { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+
+  <h1>🔒 Door Lock Dashboard</h1>
+  <div class="status-line"><span class="dot" id="statusDot"></span><span id="statusText">Đang kiểm tra kết nối...</span></div>
+
+  <!-- LICH SU -->
+  <div class="card">
+    <h2>Lịch sử truy cập</h2>
+    <div class="row">
+      <button onclick="loadHistory()">Tải lại</button>
+      <span class="muted">Ảnh chỉ còn trong bộ nhớ tạm (8 ảnh gần nhất)</span>
+    </div>
+    <table id="historyTable">
+      <thead><tr><th>Thời gian</th><th>Loại</th><th>User</th><th>Độ tin cậy</th><th>Ảnh</th></tr></thead>
+      <tbody><tr><td colspan="5" class="muted">Chưa tải</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- NGUOI DUNG -->
+  <div class="card">
+    <h2>Người dùng nhận diện (camera)</h2>
+    <div class="row">
+      <button onclick="loadUsers()">Danh sách người dùng</button>
+    </div>
+    <table id="usersTable">
+      <thead><tr><th>User ID</th><th>Tên</th><th></th></tr></thead>
+      <tbody><tr><td colspan="3" class="muted">Chưa tải</td></tr></tbody>
+    </table>
+
+    <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:12px;">
+      <div class="row">
+        <div class="field"><label>User ID</label><input type="number" id="addUserId" placeholder="1"></div>
+        <div class="field" style="flex:2"><label>Tên</label><input type="text" id="addUserName" placeholder="Nguyen Van A"></div>
+      </div>
+      <div class="row">
+        <button onclick="userAddStart()">1. Bắt đầu đăng ký</button>
+        <button onclick="userAddCapture()">2. Chụp</button>
+        <button class="secondary" onclick="userAddCancel()">Hủy</button>
+      </div>
+      <div id="addUserMsg" class="msg"></div>
+    </div>
+  </div>
+
+  <!-- CAMERA -->
+  <div class="card">
+    <h2>Cấu hình camera</h2>
+    <div class="row">
+      <div class="field"><label>Brightness (-127..127)</label><input type="number" id="brightness" value="0"></div>
+      <div class="field"><label>Contrast (-127..127)</label><input type="number" id="contrast" value="0"></div>
+    </div>
+    <div class="row">
+      <label class="checkbox-row"><input type="checkbox" id="flip"> Lật ảnh (flip)</label>
+      <label class="checkbox-row"><input type="checkbox" id="mirror"> Gương (mirror)</label>
+    </div>
+    <div class="row">
+      <button onclick="applyCamera()">Áp dụng</button>
+    </div>
+    <div id="cameraMsg" class="msg"></div>
+  </div>
+
+  <!-- NHAN DIEN -->
+  <div class="card">
+    <h2>Nhận diện khuôn mặt</h2>
+    <div class="row">
+      <div class="field"><label>Model ID</label><input type="number" id="modelId" value="0"></div>
+      <div class="field"><label>Ngưỡng tương đồng (threshold)</label><input type="number" id="threshold" value="0.5" step="0.01"></div>
+    </div>
+    <div class="row">
+      <button onclick="applyRecognition()">Áp dụng</button>
+    </div>
+    <div id="recognitionMsg" class="msg"></div>
+  </div>
+
+  <!-- LIVENESS -->
+  <div class="card">
+    <h2>Chống giả mạo (liveness)</h2>
+    <div class="row">
+      <label class="checkbox-row"><input type="checkbox" id="livenessEnable"> Bật kiểm tra chống giả mạo (yêu cầu quay đầu)</label>
+      <button onclick="applyLiveness()">Áp dụng</button>
+    </div>
+    <div id="livenessMsg" class="msg"></div>
+  </div>
+
+<script>
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  let data = null;
+  try { data = await res.json(); } catch (e) {}
+  return { ok: res.ok, status: res.status, data };
+}
+
+function setMsg(id, text, ok) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'msg ' + (ok ? 'ok' : 'err');
+}
+
+async function checkStatus() {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  try {
+    const r = await api('/api/status');
+    if (r.ok) {
+      dot.className = 'dot ok';
+      txt.textContent = 'Đã kết nối tới Door Lock';
+    } else {
+      throw new Error('bad status');
+    }
+  } catch (e) {
+    dot.className = 'dot err';
+    txt.textContent = 'Không kết nối được API';
+  }
+}
+
+function fmtTime(us) {
+  if (!us) return '-';
+  const d = new Date(us / 1000);
+  return d.toLocaleTimeString('vi-VN');
+}
+
+const typeLabel = {
+  granted: 'Mở khóa', denied: 'Từ chối',
+  unknown_face: 'Không rõ mặt', liveness_fail: 'Nghi giả mạo'
+};
+
+async function loadHistory() {
+  const tbody = document.querySelector('#historyTable tbody');
+  tbody.innerHTML = '<tr><td colspan="5" class="muted">Đang tải...</td></tr>';
+  const r = await api('/api/history?limit=20');
+  const list = (r.ok && Array.isArray(r.data)) ? r.data : [];
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="muted">Chưa có sự kiện nào</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(ev => `
+    <tr>
+      <td>${fmtTime(ev.timestamp_us)}</td>
+      <td><span class="tag ${ev.type}">${typeLabel[ev.type] || ev.type}</span></td>
+      <td>${ev.face_user_id || '-'}</td>
+      <td>${ev.similarity ? ev.similarity.toFixed(2) : '-'}</td>
+      <td>${ev.has_image ? `<a class="imglink" href="/api/image/${ev.event_id}" target="_blank">Xem ảnh</a>` : '-'}</td>
+    </tr>`).join('');
+}
+
+async function loadUsers() {
+  const tbody = document.querySelector('#usersTable tbody');
+  tbody.innerHTML = '<tr><td colspan="3" class="muted">Đang tải (có thể mất vài giây)...</td></tr>';
+  const r = await api('/api/users');
+  const list = (r.ok && Array.isArray(r.data)) ? r.data : [];
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" class="muted">Không có user nào (hoặc camera chưa phản hồi)</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(u => `
+    <tr>
+      <td>${u.user_id}</td>
+      <td>${u.name}</td>
+      <td><button class="danger" onclick="userDelete(${u.user_id})">Xóa</button></td>
+    </tr>`).join('');
+}
+
+async function userDelete(id) {
+  if (!confirm('Xóa user ' + id + '?')) return;
+  const r = await api('/api/users/' + id, { method: 'DELETE' });
+  loadUsers();
+}
+
+async function userAddStart() {
+  const id = document.getElementById('addUserId').value;
+  const name = document.getElementById('addUserName').value;
+  if (!id || !name) { setMsg('addUserMsg', 'Nhập đủ User ID và Tên', false); return; }
+  const r = await api('/api/users/start', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: Number(id), name })
+  });
+  setMsg('addUserMsg', r.ok ? 'Đã gửi lệnh bắt đầu đăng ký, giờ bấm "Chụp"' : 'Lỗi gửi lệnh', r.ok);
+}
+
+async function userAddCapture() {
+  const r = await api('/api/users/capture', { method: 'POST' });
+  if (r.data && r.data.ok) {
+    setMsg('addUserMsg', `Đăng ký thành công: ${r.data.name} (id ${r.data.user_id})`, true);
+    loadUsers();
+  } else {
+    setMsg('addUserMsg', (r.data && r.data.error) || 'Chụp thất bại / hết thời gian chờ', false);
+  }
+}
+
+async function userAddCancel() {
+  await api('/api/users/cancel', { method: 'POST' });
+  setMsg('addUserMsg', 'Đã hủy đăng ký', true);
+}
+
+async function applyCamera() {
+  const body = {
+    brightness: Number(document.getElementById('brightness').value),
+    contrast: Number(document.getElementById('contrast').value),
+    flip: document.getElementById('flip').checked,
+    mirror: document.getElementById('mirror').checked
+  };
+  const r = await api('/api/camera', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  setMsg('cameraMsg', r.ok ? 'Đã áp dụng' : 'Lỗi gửi lệnh', r.ok);
+}
+
+async function applyRecognition() {
+  const body = {
+    model_id: Number(document.getElementById('modelId').value),
+    threshold: Number(document.getElementById('threshold').value)
+  };
+  const r = await api('/api/recognition', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  setMsg('recognitionMsg', r.ok ? 'Đã áp dụng' : 'Lỗi gửi lệnh', r.ok);
+}
+
+async function applyLiveness() {
+  const body = { enable: document.getElementById('livenessEnable').checked };
+  const r = await api('/api/liveness', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  setMsg('livenessMsg', r.ok ? 'Đã áp dụng' : 'Lỗi gửi lệnh', r.ok);
+}
+
+checkStatus();
+loadHistory();
+</script>
+</body>
+</html>

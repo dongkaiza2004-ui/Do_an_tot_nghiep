@@ -18,6 +18,7 @@
 #include <esp_matter_console.h>
 
 #include <cstring>
+#include <cstdlib>
 
 using namespace chip;
 using namespace chip::app::Clusters::DoorLock;
@@ -127,7 +128,8 @@ void print_door_lock_console_help()
            "\thelp: Print help\n"
            "\tstatus: Print aggregate user and credential capacity\n"
            "\tusers: Print users and credential references without credential data\n"
-           "\tpin-unlock <PIN>: Validate an enabled user's PIN and unlock locally\n");
+           "\tpin-unlock <PIN>: Validate an enabled user's PIN and unlock locally\n"
+           "\tadd-pin <userIndex> <PIN>: Tao/ghi de 1 user + 1 PIN credential cuc bo de test\n");
 }
 
 esp_err_t door_lock_console_handler(int argc, char ** argv)
@@ -160,6 +162,37 @@ esp_err_t door_lock_console_handler(int argc, char ** argv)
         }
         ESP_LOGW(TAG, "Unlock event: source=keypad user=%u credential=pin:%u", match.userIndex,
                  match.credentialIndex);
+        return ESP_OK;
+    }
+    if (argc == 3 && std::strcmp(argv[0], "add-pin") == 0) {
+        uint16_t userIndex = static_cast<uint16_t>(std::atoi(argv[1]));
+        if (userIndex < 1 || userIndex > DoorLockCapabilities::kUsers) {
+            ESP_LOGE(TAG, "userIndex phai trong khoang 1..%u", DoorLockCapabilities::kUsers);
+            return ESP_ERR_INVALID_ARG;
+        }
+        uint16_t credentialIndex = userIndex;
+        const ByteSpan pin(reinterpret_cast<const uint8_t *>(argv[2]), std::strlen(argv[2]));
+
+        if (!DoorLockStorage::Instance().SetCredential(credentialIndex, chip::kUndefinedFabricIndex,
+                chip::kUndefinedFabricIndex, DlCredentialStatus::kOccupied, CredentialTypeEnum::kPin, pin)) {
+            ESP_LOGE(TAG, "SetCredential that bai");
+            return ESP_FAIL;
+        }
+
+        CredentialStruct credentials[1] = {
+            { .credentialType = CredentialTypeEnum::kPin, .credentialIndex = credentialIndex }
+        };
+        char nameBuf[16];
+        snprintf(nameBuf, sizeof(nameBuf), "TestUser%u", userIndex);
+
+        if (!DoorLockStorage::Instance().SetUser(userIndex, chip::kUndefinedFabricIndex, chip::kUndefinedFabricIndex,
+                CharSpan(nameBuf, std::strlen(nameBuf)), 0, UserStatusEnum::kOccupiedEnabled,
+                UserTypeEnum::kUnrestrictedUser, CredentialRuleEnum::kSingle, credentials, 1)) {
+            ESP_LOGE(TAG, "SetUser that bai");
+            return ESP_FAIL;
+        }
+
+        ESP_LOGI(TAG, "Da tao user %u voi PIN moi", userIndex);
         return ESP_OK;
     }
 

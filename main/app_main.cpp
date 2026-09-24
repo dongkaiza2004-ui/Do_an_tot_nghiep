@@ -16,6 +16,7 @@
 #include <esp_matter.h>
 #include <esp_matter_console.h>
 #include <esp_matter_ota.h>
+#include <setup_payload/OnboardingCodesUtil.h>
 
 #include <common_macros.h>
 #include <app_priv.h>
@@ -32,6 +33,16 @@
 #ifdef CONFIG_ENABLE_ALIRO_OVER_NFC
 #include <aliro_door_lock_delegate.h>
 #endif
+
+// ============================================================================
+// TICH HOP LIEN KET CAMERA NHAN DIEN KHUON MAT (them moi)
+// ============================================================================
+#include <driver/uart.h>
+#include <access_gateway.h>
+#include <comm_uart.h>
+#include <comm_espnow.h>
+#include <access_dashboard.h>
+// ============================================================================
 
 static const char *TAG = "app_main";
 uint16_t door_lock_endpoint_id = 0;
@@ -51,6 +62,22 @@ extern const char decryption_key_end[] asm("_binary_esp_image_encryption_key_pem
 static const char *s_decryption_key = decryption_key_start;
 static const uint16_t s_decryption_key_len = decryption_key_end - decryption_key_start;
 #endif // CONFIG_ENABLE_ENCRYPTED_OTA
+
+// ============================================================================
+// TICH HOP LIEN KET CAMERA NHAN DIEN KHUON MAT (them moi)
+//
+// GIA TRI TAM (PLACEHOLDER) - PHAI KIEM TRA LAI TRUOC KHI FLASH THAT:
+//   - kFaceLinkUartTxPin / kFaceLinkUartRxPin: chon 2 chan GPIO con trong
+//     tren board ESP32-S3 dang dung (esp_bsp_devkit), CHUA duoc BSP dung cho
+//     nut bam/LED/camera/... nao khac. Gia tri 17/18 duoi day CHI LA VI DU.
+//   - Day day cheo voi camera: chan TX cua Node B noi vao chan RX cua camera
+//     (GPIO47 theo source code camera) va nguoc lai (RX cua Node B noi vao
+//     TX cua camera, GPIO21). Hai ben phai chung mass (GND).
+//   - Baud rate phai khop CHINH XAC voi camera (115200, theo source code camera).
+// ============================================================================
+static constexpr int kFaceLinkUartTxPin = 17;
+static constexpr int kFaceLinkUartRxPin = 18;
+static constexpr int kFaceLinkUartBaud  = 115200;
 
 static void app_event_cb(const ChipDeviceEvent *event, intptr_t arg)
 {
@@ -197,6 +224,7 @@ extern "C" void app_main()
     /* Matter start */
     err = esp_matter::start(app_event_cb);
     ABORT_APP_ON_FAILURE(err == ESP_OK, ESP_LOGE(TAG, "Failed to start Matter, err:%d", err));
+    PrintOnboardingCodes(chip::RendezvousInformationFlags(chip::RendezvousInformationFlag::kBLE));
 
     err = app_driver_init();
     ABORT_APP_ON_FAILURE(err == ESP_OK, ESP_LOGE(TAG, "Failed to initialize application driver, err:%d", err));
@@ -204,6 +232,44 @@ extern "C" void app_main()
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set RGB LED state, err:%d", err);
     }
+
+    // ========================================================================
+    // TICH HOP LIEN KET CAMERA NHAN DIEN KHUON MAT (them moi)
+    //
+    // Thu tu goi QUAN TRONG:
+    //   1. comm_uart_init()      - cai driver UART, CHUA nhan du lieu gi
+    //   2. access_gateway_init() - dang ky listener xu ly nghiep vu TRUOC
+    //   3. comm_uart_start()     - roi moi bat task doc, tranh bo lot khung dau
+    //   4. comm_espnow_init()    - PHAI o sau esp_matter::start() vi Wi-Fi
+    //                              driver da duoc Matter khoi tao san, khong
+    //                              duoc tu init lai (xem comm_espnow.h)
+    //   5. comm_espnow_start()
+    //   6. access_dashboard_start() - dang ky them listener/subscriber roi
+    //                              mo HTTP server, phai o sau cac buoc tren
+    // ========================================================================
+    err = comm_uart_init(UART_NUM_1, kFaceLinkUartTxPin, kFaceLinkUartRxPin, kFaceLinkUartBaud);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to init comm_uart, err:%d", err);
+    } else {
+        err = access_gateway_init();
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to init access_gateway, err:%d", err);
+        }
+        comm_uart_start();
+    }
+
+    err = comm_espnow_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to init comm_espnow, err:%d", err);
+    } else {
+        comm_espnow_start();
+    }
+
+    err = access_dashboard_start();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start access_dashboard, err:%d", err);
+    }
+    // ========================================================================
 
 #if CONFIG_ENABLE_ENCRYPTED_OTA
     err = esp_matter_ota_requestor_encrypted_init(s_decryption_key, s_decryption_key_len);

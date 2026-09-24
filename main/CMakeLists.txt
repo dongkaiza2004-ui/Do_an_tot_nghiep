@@ -13,6 +13,7 @@ idf_component_register(SRC_DIRS "." "./lock"
                        PRIV_INCLUDE_DIRS
                          "." "./lock" "${ESP_MATTER_PATH}/examples/common/utils"
                        PRIV_REQUIRES
+                         esp_matter chip esp_matter_console
                          comm_uart comm_espnow access_events access_dashboard)
 
 target_compile_options(${COMPONENT_LIB} PRIVATE "-DCHIP_HAVE_CONFIG_H")

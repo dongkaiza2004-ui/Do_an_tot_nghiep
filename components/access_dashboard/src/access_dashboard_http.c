@@ -29,6 +29,9 @@
 static const char *TAG = "access_dashboard_http";
 static httpd_handle_t s_server = NULL;
 
+extern const uint8_t dashboard_html_start[] asm("_binary_dashboard_html_start");
+extern const uint8_t dashboard_html_end[]   asm("_binary_dashboard_html_end");
+
 //==========================================================================
 // Cau dong bo hoa tam thoi cho comm_uart (xem giai thich o dau file)
 //==========================================================================
@@ -42,6 +45,13 @@ typedef struct {
 typedef struct {
     QueueHandle_t queue;
 } wait_ctx_t;
+
+static esp_err_t handle_root(httpd_req_t *req)
+{
+    httpd_resp_set_type(req, "text/html; charset=utf-8");
+    size_t len = dashboard_html_end - dashboard_html_start;
+    return httpd_resp_send(req, (const char *)dashboard_html_start, len);
+}
 
 static void wait_listener(uint8_t rsp_cmd, const uint8_t *payload, uint8_t len, void *ctx)
 {
@@ -495,6 +505,7 @@ esp_err_t access_dashboard_start(void)
     }
 
     static const httpd_uri_t routes[] = {
+        { .uri = "/",                  .method = HTTP_GET,    .handler = handle_root }, 
         { .uri = "/api/status",        .method = HTTP_GET,    .handler = handle_status },
         { .uri = "/api/history",       .method = HTTP_GET,    .handler = handle_history },
         { .uri = "/api/image/*",       .method = HTTP_GET,    .handler = handle_image },
