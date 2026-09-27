@@ -12,12 +12,13 @@
 #include "esp_log.h"
 
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 
 #include <string.h>
 #include <stdlib.h>
 #include <stddef.h>
 
-
+#define CAMERA_WIFI_CHANNEL  9 
 //==================================================
 // Logging
 //==================================================
@@ -30,6 +31,7 @@ static const char *TAG = "comm_espnow";
 
 static QueueHandle_t s_event_queue = NULL;
 static uint8_t s_peer_mac[6];
+static SemaphoreHandle_t s_send_done_sem;  
 
 //==================================================
 // Forward Declaration
@@ -48,6 +50,7 @@ static void espnow_send_cb(const uint8_t *mac_addr, esp_now_send_status_t status
     if (status != ESP_NOW_SEND_SUCCESS) {
         ESP_LOGW(TAG, "Gói ESP-NOW gửi thất bại");
     }
+    xSemaphoreGive(s_send_done_sem);
 }
 
 
@@ -72,7 +75,7 @@ esp_err_t comm_espnow_init(const uint8_t peer_mac[6])
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
-
+    ESP_ERROR_CHECK(esp_wifi_set_channel(CAMERA_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE));
     //==================================================
     // Khởi tạo ESP-NOW
     //==================================================
@@ -95,6 +98,8 @@ esp_err_t comm_espnow_init(const uint8_t peer_mac[6])
     //==================================================
 
     s_event_queue = xQueueCreate(4, sizeof(face_event_t));
+    s_send_done_sem = xSemaphoreCreateBinary();   // MỚI
+    xSemaphoreGive(s_send_done_sem);
     ESP_LOGI(TAG, "ESP-NOW init OK, peer=" MACSTR, MAC2STR(s_peer_mac));
 
     return ESP_OK;
@@ -156,13 +161,18 @@ static void send_fragmented_jpeg(const face_event_t *evt)
         //==================================================
 
         size_t send_size = offsetof(espnow_frame_fragment_t, payload) + chunk;
+
+        if (xSemaphoreTake(s_send_done_sem, pdMS_TO_TICKS(500)) != pdTRUE) {
+            ESP_LOGW(TAG, "Cho callback fragment truoc qua lau, van thu gui tiep");
+        }
+
         esp_err_t err = esp_now_send(s_peer_mac, (uint8_t *)&frag, send_size);
         if (err != ESP_OK) {
             ESP_LOGW(TAG, "esp_now_send lỗi (%s) tại fragment %u/%u",
                 esp_err_to_name(err), i, total
             );
         }
-        vTaskDelay(pdMS_TO_TICKS(2));
+        xSemaphoreGive(s_send_done_sem);
     }
 }
 
