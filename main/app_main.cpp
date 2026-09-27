@@ -41,7 +41,7 @@ static const char *TAG = "app_main";
 //==================================================
 
 static const uint8_t NODE_B_MAC[6] = {
-    0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF
+    0xE0, 0x72, 0xA1, 0xD7, 0x1B, 0xCC
 };
 
 //==================================================
@@ -198,7 +198,9 @@ static void main_pipeline_task(void *arg)
         enroll_state_t est = app_state_get_enroll_state();
         overlay_render_draw_live( buf, fb->width, fb->height, ov, n, 
                                     app_state_get_show_fps(), current_fps, 
-                                    est.in_progress, "DUA MAT VAO KHUNG...");
+                                    est.in_progress, "DUA MAT VAO KHUNG...",
+                                    app_state_get_liveness_prompt(), 
+                                    "Xoay dau trai/phai de kiem tra song thuc");
         //==================================================
         // Display Byte Order
         //==================================================

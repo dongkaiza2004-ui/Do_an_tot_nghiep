@@ -32,6 +32,6 @@
     "--query-driver=**",
     "--compile-commands-dir=e:\\document\\esp32_visual_studio\\project_face_cam\\build"
   ],
-  "idf.portWin": "COM7",
-  "idf.flashType": "UART"
+  "idf.flashType": "UART",
+  "idf.port": "COM7"
 }

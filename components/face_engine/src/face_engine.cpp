@@ -17,6 +17,7 @@
 #include <cstdio>
 #include <cstring>
 #include <vector>
+#include <algorithm>
 
 //==================================================
 // Logging
@@ -35,6 +36,8 @@ static char s_names_path[40] = "/spiffs/user_names_mfn.bin";
 #define JPEG_QUALITY             30
 #define RECOG_FRAME_INTERVAL     50
 #define RESULT_PERSIST_FRAMES    40
+#define LIVENESS_CHECK_FRAMES   20  
+#define LIVENESS_YAW_THRESHOLD  10  
 
 //==================================================
 // Runtime State
@@ -56,6 +59,16 @@ static uint16_t s_last_user_id = 0xFFFF;
 static char s_last_name[FACE_ENGINE_NAME_LEN] = "Detecting";
 static float s_last_similarity = 0.0f;
 static int s_persist_left = 0;
+
+static bool    s_liveness_active   = false;
+static int     s_liveness_left     = 0;
+static int     s_liveness_baseline = 0;
+static bool    s_liveness_passed   = false;
+
+static uint16_t s_pending_user_id;
+static float    s_pending_similarity;
+static char s_pending_name[FACE_ENGINE_NAME_LEN] = "";
+static uint32_t s_pending_event_id;
 
 //==================================================
 // User Name Database
@@ -136,6 +149,17 @@ static void user_db_add(uint16_t id, uint16_t feat_id, const char *name)
 
     ESP_LOGW(TAG, "Bang ten day (MAX_USERS=%d), khong them duoc", MAX_USERS);
 }
+//==================================================
+// Chống giả mạo
+//==================================================
+
+static int estimate_yaw(const std::vector<int> &kp)
+{
+    if (kp.size() < 10) return 0;
+    int eye_mid_x = (kp[0] + kp[2]) / 2;
+    return kp[4] - eye_mid_x;
+}
+
 //==================================================
 // Chose model
 //==================================================
@@ -392,6 +416,53 @@ int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height, face_
     }
 
     //==================================================
+    // Liveness Check
+    //==================================================
+    if (s_liveness_active) {
+        if (count >= 1) {
+            out_results[0].matched    = true;
+            out_results[0].user_id    = s_pending_user_id;
+            out_results[0].similarity = s_pending_similarity;
+            strncpy(out_results[0].name, s_pending_name, FACE_ENGINE_NAME_LEN - 1);
+            out_results[0].name[FACE_ENGINE_NAME_LEN - 1] = '\0';
+        }
+
+        if (!results.empty()) {
+            int yaw = estimate_yaw(results.front().keypoint);
+            if (abs(yaw - s_liveness_baseline) >= LIVENESS_YAW_THRESHOLD) {
+                s_liveness_passed = true;
+            }
+        }
+
+        if (--s_liveness_left <= 0) {
+            s_liveness_active = false;
+            app_state_set_liveness_prompt(false);
+
+            if (s_liveness_passed) {
+                s_last_matched    = true;
+                s_last_user_id    = s_pending_user_id;
+                s_last_similarity = s_pending_similarity;
+                strncpy(s_last_name, s_pending_name, FACE_ENGINE_NAME_LEN - 1);
+                s_last_name[FACE_ENGINE_NAME_LEN - 1] = '\0';
+                s_persist_left = RESULT_PERSIST_FRAMES;
+            } else {
+
+                s_persist_left = 0;
+            }
+
+            if (s_uart_report_cb) {
+                if (s_liveness_passed) {
+                    s_uart_report_cb(FACE_EVENT_LOGIN_SUCCESS, s_pending_event_id,
+                                      s_pending_user_id, s_pending_similarity);
+                } else {
+                    s_uart_report_cb(FACE_EVENT_LIVENESS_FAIL, s_pending_event_id, 0, 0.0f);
+                }
+            }
+        }
+        return count;
+    }
+
+    //==================================================
     // Recognition Result Persistence
     //==================================================
 
@@ -439,7 +510,7 @@ int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height, face_
     //==================================================
     // Recognition & Event
     //==================================================
-
+    
     if (!results.empty() && !app_state_is_enrolling()) {
         s_frame_counter++;
 
@@ -465,6 +536,20 @@ int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height, face_
                 out_results[0].similarity = rec_res[0].similarity;
                 strncpy(out_results[0].name, evt_name, FACE_ENGINE_NAME_LEN - 1);
                 out_results[0].name[FACE_ENGINE_NAME_LEN - 1] = '\0';
+
+                if (app_state_get_liveness_enabled()) {
+                    s_liveness_active   = true;
+                    s_liveness_left     = LIVENESS_CHECK_FRAMES;
+                    s_liveness_baseline = estimate_yaw(results.front().keypoint);
+                    s_liveness_passed   = false;
+                    s_pending_user_id     = evt_user_id;
+                    s_pending_similarity  = rec_res[0].similarity;
+                    s_pending_event_id    = ++s_event_id_counter;
+                    strncpy(s_pending_name, evt_name, FACE_ENGINE_NAME_LEN - 1);   
+                    s_pending_name[FACE_ENGINE_NAME_LEN - 1] = '\0';               
+                    app_state_set_liveness_prompt(true);
+                    return count;   
+                }
             }
             else {
                 out_results[0].matched = false;
@@ -473,6 +558,7 @@ int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height, face_
                 strncpy(out_results[0].name, evt_name, FACE_ENGINE_NAME_LEN - 1);
                 out_results[0].name[FACE_ENGINE_NAME_LEN - 1] = '\0';
             }
+
 
             //==================================================
             // Recognition State
@@ -512,7 +598,6 @@ int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height, face_
 
             int cx = (out_results[0].x1 + out_results[0].x2) / 2;
             int cy = (out_results[0].y1 + out_results[0].y2) / 2;
-
             //==================================================
             // Event Cooldown
             //==================================================
@@ -553,9 +638,6 @@ int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height, face_
                     ESP_LOGE(TAG, "Nen JPEG that bai cho anh su kien");
                 }
             }
-        }
-        else if (results.empty()) {
-            s_frame_counter = 0;
         }
     }
 

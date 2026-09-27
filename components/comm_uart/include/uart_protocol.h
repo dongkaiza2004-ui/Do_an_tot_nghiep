@@ -42,6 +42,8 @@ typedef enum {
     CMD_START_STREAM      = 0x0D,
     CMD_STOP_STREAM       = 0x0E,
 
+    CMD_ENABLE_LIVENESS_CHECK = 0x10,
+
     // Node A -> Node B
     RSP_ACK               = 0x80,
     RSP_NACK              = 0x81,

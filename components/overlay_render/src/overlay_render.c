@@ -194,7 +194,8 @@ static void draw_text(uint16_t *buf, int width, int height, int x, int y, const 
 //==================================================
 
 void overlay_render_draw_live( uint16_t *buf, int width, int height, const overlay_face_t *faces, 
-    int face_count, bool show_fps, float current_fps, bool enrolling, const char *enroll_hint)
+    int face_count, bool show_fps, float current_fps, bool enrolling, const char *enroll_hint,
+    bool liveness_check, const char *liveness_hint)
 {
     if (!buf) {
         return;
@@ -227,5 +228,9 @@ void overlay_render_draw_live( uint16_t *buf, int width, int height, const overl
 
     if (enrolling && enroll_hint) {
         draw_text(buf, width, height, 2, height - 8, enroll_hint, COLOR_WHITE, 1);
+    }
+
+    if (liveness_check && liveness_hint) {
+        draw_text(buf, width, height, 2, 10, liveness_hint, COLOR_YELLOW, 1);
     }
 }

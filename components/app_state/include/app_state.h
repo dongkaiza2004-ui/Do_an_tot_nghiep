@@ -82,6 +82,14 @@ void app_state_cancel_enroll(void);
 bool app_state_is_enrolling(void);
 enroll_state_t app_state_get_enroll_state(void);
 
+//==================================================
+// chống giả mạo
+//==================================================
+
+void app_state_set_liveness_prompt(bool active);
+bool app_state_get_liveness_prompt(void);
+void app_state_set_liveness_enabled(bool enable);  
+bool app_state_get_liveness_enabled(void);
 
 //==================================================
 // Light Control

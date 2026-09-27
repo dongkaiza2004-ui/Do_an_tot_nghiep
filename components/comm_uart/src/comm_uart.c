@@ -304,6 +304,16 @@ static void handle_command(uint8_t cmd, const uint8_t *payload, uint8_t len)
 
             break;
         }
+        case CMD_ENABLE_LIVENESS_CHECK: {
+            if (len < sizeof(payload_bool_t)) { 
+                send_nack(); 
+                break; 
+            }
+            payload_bool_t p; memcpy(&p, payload, sizeof(p));
+            app_state_set_liveness_enabled(p.enable != 0);
+            send_ack();
+            break;
+        }
 
 
         //==================================================

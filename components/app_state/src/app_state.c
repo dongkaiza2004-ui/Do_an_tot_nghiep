@@ -56,6 +56,11 @@ static bool s_show_fps = false;
 //==================================================
 
 static bool s_streaming = true;
+//==================================================
+// Liveness
+//==================================================
+static bool s_liveness_prompt   = false;   // <-- THEM
+static bool s_liveness_enabled  = false;   // <-- THEM
 
 //==================================================
 // Light Control
@@ -336,8 +341,32 @@ enroll_state_t app_state_get_enroll_state(void)
 
     return enroll;
 }
+//==================================================
+// chống giả mạo
+//==================================================
 
-
+void app_state_set_liveness_prompt(bool active) { 
+    LOCK(); 
+    s_liveness_prompt = active; 
+    UNLOCK(); 
+}
+bool app_state_get_liveness_prompt(void){ 
+    LOCK(); 
+    bool v = s_liveness_prompt; 
+    UNLOCK(); 
+    return v; 
+}
+void app_state_set_liveness_enabled(bool enable) { 
+    LOCK(); 
+    s_liveness_enabled = enable; 
+    UNLOCK(); 
+}   
+bool app_state_get_liveness_enabled(void){ 
+    LOCK(); 
+    bool v = s_liveness_enabled; 
+    UNLOCK(); 
+    return v; 
+}  
 //==================================================
 // Light Control
 //==================================================

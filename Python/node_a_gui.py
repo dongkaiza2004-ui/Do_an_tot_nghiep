@@ -40,6 +40,7 @@ CMD_LIST_USER_REQ    = 0x0C
 CMD_START_STREAM     = 0x0D
 CMD_STOP_STREAM      = 0x0E
 CMD_CLEAR_ALL_USERS  = 0x0F
+CMD_ENABLE_LIVENESS_CHECK = 0x10
 
 RSP_ACK              = 0x80
 RSP_NACK             = 0x81
@@ -61,6 +62,7 @@ CMD_NAME = {
     CMD_SUB_USER: "CMD_SUB_USER", CMD_LIST_USER_REQ: "CMD_LIST_USER_REQ",
     CMD_START_STREAM: "CMD_START_STREAM", CMD_STOP_STREAM: "CMD_STOP_STREAM",
     CMD_CLEAR_ALL_USERS: "CMD_CLEAR_ALL_USERS",
+    CMD_ENABLE_LIVENESS_CHECK: "CMD_ENABLE_LIVENESS_CHECK",
     RSP_ACK: "RSP_ACK", RSP_NACK: "RSP_NACK", RSP_ADD_USER_RESULT: "RSP_ADD_USER_RESULT",
     RSP_SUB_USER_RESULT: "RSP_SUB_USER_RESULT", RSP_USER_LIST_ITEM: "RSP_USER_LIST_ITEM",
     RSP_USER_LIST_END: "RSP_USER_LIST_END", RSP_FPS_REPORT: "RSP_FPS_REPORT",
@@ -272,6 +274,11 @@ class App:
         ttk.Checkbutton(f1, text="Show FPS", variable=self.fps_var,
                          command=lambda: self._send_bool(CMD_SHOW_FPS, self.fps_var.get())
                          ).grid(row=5, column=0, sticky="w")
+
+        self.liveness_var = tk.BooleanVar()
+        ttk.Checkbutton(f1, text="Chong gia mao (Liveness)", variable=self.liveness_var,
+                         command=lambda: self._send_bool(CMD_ENABLE_LIVENESS_CHECK, self.liveness_var.get())
+                         ).grid(row=5, column=1, sticky="w")
 
         ttk.Separator(f1).grid(row=6, column=0, columnspan=3, sticky="ew", pady=8)
         ttk.Button(f1, text="Start Stream (du phong)",

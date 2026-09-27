@@ -32,7 +32,8 @@ typedef struct {
 
 // Vẽ box, tên, FPS và hướng dẫn Enrollment trực tiếp lên buffer RGB565.
 void overlay_render_draw_live( uint16_t *buf, int width, int height, const overlay_face_t *faces,
-    int face_count, bool show_fps, float current_fps, bool enrolling, const char *enroll_hint
+    int face_count, bool show_fps, float current_fps, bool enrolling, const char *enroll_hint,
+    bool liveness_check, const char *liveness_hint
 );
 
 #ifdef __cplusplus

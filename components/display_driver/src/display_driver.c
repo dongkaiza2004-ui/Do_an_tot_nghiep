@@ -165,14 +165,14 @@ void display_driver_draw(const uint16_t *buf, int w, int h, int y_offset)
         return;
     }
 
-    static int log_counter = 0;
+    // static int log_counter = 0;
 
-    if (++log_counter % 30 == 0) {
-        ESP_LOGW(TAG, "Free DMA-capable: %d bytes (largest block: %d) | Free internal: %d bytes",
-                 heap_caps_get_free_size(MALLOC_CAP_DMA),
-                 heap_caps_get_largest_free_block(MALLOC_CAP_DMA),
-                 heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
-    }
+    // if (++log_counter % 30 == 0) {
+    //     ESP_LOGW(TAG, "Free DMA-capable: %d bytes (largest block: %d) | Free internal: %d bytes",
+    //              heap_caps_get_free_size(MALLOC_CAP_DMA),
+    //              heap_caps_get_largest_free_block(MALLOC_CAP_DMA),
+    //              heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    // }
 
     size_t need_bytes = (size_t)w * h * 2;
 
