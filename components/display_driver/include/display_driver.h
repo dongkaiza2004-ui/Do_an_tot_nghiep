@@ -15,9 +15,10 @@ extern "C" {
 
 #define DISPLAY_CAM_W     160
 #define DISPLAY_CAM_H     120
-#define DISPLAY_DRAW_W    160
-#define DISPLAY_DRAW_H    128
-#define DISPLAY_Y_OFFSET  ((DISPLAY_DRAW_H - DISPLAY_CAM_H) / 2)
+#define DISPLAY_DRAW_W    128
+#define DISPLAY_DRAW_H    160
+#define DISPLAY_Y_OFFSET  ((DISPLAY_DRAW_H - DISPLAY_CAM_H) / 2) 
+#define DISPLAY_ROTATE_CW 1
 
 //==================================================
 // Initialization

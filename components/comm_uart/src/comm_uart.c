@@ -4,6 +4,7 @@
 #include "app_state.h"
 #include "face_engine.h"
 #include "cam_driver.h"
+#include "esp_wifi.h"
 
 #include "driver/gpio.h"
 #include "esp_log.h"
@@ -315,6 +316,33 @@ static void handle_command(uint8_t cmd, const uint8_t *payload, uint8_t len)
             break;
         }
 
+        case CMD_SET_ESPNOW_CHANNEL: {
+            if (len < sizeof(payload_set_channel_t)) {
+                send_nack();
+                break;
+            }
+
+            payload_set_channel_t p;
+            memcpy(&p, payload, sizeof(p));
+
+            if (p.channel < 1 || p.channel > 13) {
+                ESP_LOGW(TAG, "Kenh khong hop le tu Node B: %d", p.channel);
+                send_nack();
+                break;
+            }
+
+            esp_err_t err = esp_wifi_set_channel(p.channel, WIFI_SECOND_CHAN_NONE);
+            if (err == ESP_OK) {
+                ESP_LOGI(TAG, "Da doi kenh ESP-NOW theo lenh Node B: kenh %d", p.channel);
+                send_ack();
+            } 
+            else {
+                ESP_LOGE(TAG, "esp_wifi_set_channel that bai: %s", esp_err_to_name(err));
+                send_nack();
+            }
+            break;
+        }
+
 
         //==================================================
         // Streaming
@@ -329,8 +357,6 @@ static void handle_command(uint8_t cmd, const uint8_t *payload, uint8_t len)
             app_state_set_streaming(false);
             send_ack();
             break;
-
-
         //==================================================
         // Unknown Command
         //==================================================

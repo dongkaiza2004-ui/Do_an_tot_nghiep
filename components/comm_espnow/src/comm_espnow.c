@@ -17,8 +17,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stddef.h>
-
-#define CAMERA_WIFI_CHANNEL  9 
+// #define CAMERA_WIFI_CHANNEL  6  
 //==================================================
 // Logging
 //==================================================
@@ -75,7 +74,7 @@ esp_err_t comm_espnow_init(const uint8_t peer_mac[6])
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
-    ESP_ERROR_CHECK(esp_wifi_set_channel(CAMERA_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE));
+    // ESP_ERROR_CHECK(esp_wifi_set_channel(CAMERA_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE));
     //==================================================
     // Khởi tạo ESP-NOW
     //==================================================

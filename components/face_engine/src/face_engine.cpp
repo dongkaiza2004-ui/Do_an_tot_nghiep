@@ -370,6 +370,55 @@ int face_engine_list_users(user_info_t *out_list, int max_count)
     return n;
 }
 
+static void send_event_image(face_event_type_t type, uint32_t event_id,
+                              uint16_t user_id, const char *name,
+                              uint16_t *rgb565_buf, int width, int height)
+{
+    if (!s_event_queue) {
+        ESP_LOGE(TAG, "Lỗi: s_event_queue chua duoc khoi tao (NULL)!");
+        return;
+    }
+
+    uint8_t *jpg_buf = nullptr;
+    size_t jpg_len = 0;
+    size_t px_count = (size_t)width * height;
+
+    // fmt2jpg() mac dinh coi RGB565 la Big-Endian, con rgb565_buf dang la
+    // Little-Endian (da doi cho AI). Doi tam ve BE truoc khi nen, doi lai LE
+    // ngay sau do.
+    for (size_t i = 0; i < px_count; i++) {
+        rgb565_buf[i] = (rgb565_buf[i] >> 8) | (rgb565_buf[i] << 8);
+    }
+
+    bool jpg_ok = fmt2jpg((uint8_t *)rgb565_buf, px_count * 2, width, height,
+                           PIXFORMAT_RGB565, JPEG_QUALITY, &jpg_buf, &jpg_len);
+
+    for (size_t i = 0; i < px_count; i++) {
+        rgb565_buf[i] = (rgb565_buf[i] >> 8) | (rgb565_buf[i] << 8);
+    }
+
+    if (!jpg_ok) {
+        ESP_LOGE(TAG, "Nen JPEG that bai cho anh su kien");
+        return;
+    }
+
+    face_event_t evt = {};
+    evt.type = type;
+    evt.event_id = event_id;
+    evt.width = (uint16_t)width;
+    evt.height = (uint16_t)height;
+    evt.user_id = user_id;
+    strncpy(evt.name, name, FACE_ENGINE_NAME_LEN - 1);
+    evt.name[FACE_ENGINE_NAME_LEN - 1] = '\0';
+    evt.jpeg_data = jpg_buf;
+    evt.jpeg_len = jpg_len;
+
+    if (xQueueSend(s_event_queue, &evt, 0) != pdTRUE) {
+        ESP_LOGW(TAG, "event_queue day, bo qua su kien nay");
+        free(jpg_buf);
+    }
+}
+
 //==================================================
 // Face Detection & Recognition
 //==================================================
@@ -445,7 +494,10 @@ int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height, face_
                 strncpy(s_last_name, s_pending_name, FACE_ENGINE_NAME_LEN - 1);
                 s_last_name[FACE_ENGINE_NAME_LEN - 1] = '\0';
                 s_persist_left = RESULT_PERSIST_FRAMES;
-            } else {
+                send_event_image(FACE_EVENT_LOGIN_SUCCESS, s_pending_event_id, s_pending_user_id, s_pending_name,
+                                 rgb565_buf, width, height);
+            } 
+            else {
 
                 s_persist_left = 0;
             }
@@ -609,34 +661,8 @@ int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height, face_
                 ESP_LOGW(TAG, "Bo qua: Dang trong thoi gian Cooldown (vua gui xong)");
             }
             else {
-                uint8_t *jpg_buf = nullptr;
-                size_t jpg_len = 0;
-
-                if (fmt2jpg((uint8_t *)rgb565_buf, (size_t)width * height * 2, width, height,
-                    PIXFORMAT_RGB565, JPEG_QUALITY, &jpg_buf, &jpg_len)) 
-                {
-                    face_event_t evt = {};
-
-                    evt.type = evt_type;
-                    evt.event_id = event_id;
-                    evt.width = (uint16_t)width;
-                    evt.height = (uint16_t)height;
-                    evt.user_id = evt_user_id;
-
-                    strncpy( evt.name, evt_name, FACE_ENGINE_NAME_LEN - 1);
-
-                    evt.name[FACE_ENGINE_NAME_LEN - 1] = '\0';
-                    evt.jpeg_data = jpg_buf;
-                    evt.jpeg_len = jpg_len;
-
-                    if (xQueueSend(s_event_queue, &evt, 0) != pdTRUE) {
-                        ESP_LOGW(TAG, "event_queue day, bo qua su kien nay");
-                        free(jpg_buf);
-                    }
-                }
-                else {
-                    ESP_LOGE(TAG, "Nen JPEG that bai cho anh su kien");
-                }
+                send_event_image(evt_type, event_id, evt_user_id, evt_name,
+                                 rgb565_buf, width, height);
             }
         }
     }

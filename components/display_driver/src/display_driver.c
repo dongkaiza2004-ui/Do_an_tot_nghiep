@@ -130,8 +130,8 @@ esp_err_t display_driver_init(void)
     ESP_ERROR_CHECK(esp_lcd_panel_reset(s_panel));
     ESP_ERROR_CHECK(esp_lcd_panel_init(s_panel));
     ESP_ERROR_CHECK(esp_lcd_panel_invert_color(s_panel, false));
-    ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(s_panel, true));
-    ESP_ERROR_CHECK(esp_lcd_panel_mirror(s_panel, true, false));
+    ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(s_panel, false));
+    ESP_ERROR_CHECK(esp_lcd_panel_mirror(s_panel, false, false));
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(s_panel, true));
 
     //==================================================
@@ -149,6 +149,9 @@ esp_err_t display_driver_init(void)
         ESP_LOGE(TAG, "Không thể cấp phát DMA line buffer (%d bytes) - hết RAM nội bộ!", (int)s_dma_line_buf_bytes);
         return ESP_ERR_NO_MEM;
     }
+    memset(s_dma_line_buf, 0, s_dma_line_buf_bytes);
+    esp_lcd_panel_draw_bitmap(s_panel, 0, 0, DISPLAY_DRAW_W, DISPLAY_DRAW_H, s_dma_line_buf);
+    xSemaphoreTake(s_trans_done_sem, pdMS_TO_TICKS(500));
 
     ESP_LOGI(TAG, "Màn hình TFT (Node A) init OK");
 
@@ -161,30 +164,48 @@ esp_err_t display_driver_init(void)
 
 void display_driver_draw(const uint16_t *buf, int w, int h, int y_offset)
 {
-    if (!s_panel || !s_dma_line_buf) {
+    if (!s_panel || !s_dma_line_buf) return;
+
+    const int out_w  = DISPLAY_DRAW_W;          // 128
+    const int crop_x = (w - out_w) / 2;         // 16
+    if (crop_x < 0 || (size_t)out_w * h * 2 > s_dma_line_buf_bytes) {
+        ESP_LOGE(TAG, "Frame %dx%d không hợp lệ", w, h);
         return;
     }
 
-    // static int log_counter = 0;
-
-    // if (++log_counter % 30 == 0) {
-    //     ESP_LOGW(TAG, "Free DMA-capable: %d bytes (largest block: %d) | Free internal: %d bytes",
-    //              heap_caps_get_free_size(MALLOC_CAP_DMA),
-    //              heap_caps_get_largest_free_block(MALLOC_CAP_DMA),
-    //              heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
-    // }
-
-    size_t need_bytes = (size_t)w * h * 2;
-
-    if (need_bytes > s_dma_line_buf_bytes) {
-        ESP_LOGE(TAG, "Frame %dx%d vượt quá buffer nội bộ (%d bytes), bỏ qua frame này",
-                 w, h, (int)s_dma_line_buf_bytes);
-        return;
+    for (int y = 0; y < h; y++) {
+        memcpy(s_dma_line_buf + y * out_w, buf + y * w + crop_x, out_w * 2);
     }
 
-    // Copy từ Camera framebuffer trong PSRAM sang buffer DMA cố định.
-    memcpy(s_dma_line_buf, buf, need_bytes);
-
-    esp_lcd_panel_draw_bitmap(s_panel, 0, y_offset, w, y_offset + h, s_dma_line_buf);
+    esp_lcd_panel_draw_bitmap(s_panel, 0, y_offset, out_w, y_offset + h, s_dma_line_buf);
     xSemaphoreTake(s_trans_done_sem, pdMS_TO_TICKS(200));
 }
+// void display_driver_draw(const uint16_t *buf, int w, int h, int y_offset)
+// {
+//     if (!s_panel || !s_dma_line_buf) {
+//         return;
+//     }
+
+//     // static int log_counter = 0;
+
+//     // if (++log_counter % 30 == 0) {
+//     //     ESP_LOGW(TAG, "Free DMA-capable: %d bytes (largest block: %d) | Free internal: %d bytes",
+//     //              heap_caps_get_free_size(MALLOC_CAP_DMA),
+//     //              heap_caps_get_largest_free_block(MALLOC_CAP_DMA),
+//     //              heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+//     // }
+
+//     size_t need_bytes = (size_t)w * h * 2;
+
+//     if (need_bytes > s_dma_line_buf_bytes) {
+//         ESP_LOGE(TAG, "Frame %dx%d vượt quá buffer nội bộ (%d bytes), bỏ qua frame này",
+//                  w, h, (int)s_dma_line_buf_bytes);
+//         return;
+//     }
+
+//     // Copy từ Camera framebuffer trong PSRAM sang buffer DMA cố định.
+//     memcpy(s_dma_line_buf, buf, need_bytes);
+
+//     esp_lcd_panel_draw_bitmap(s_panel, 0, y_offset, w, y_offset + h, s_dma_line_buf);
+//     xSemaphoreTake(s_trans_done_sem, pdMS_TO_TICKS(200));
+// }

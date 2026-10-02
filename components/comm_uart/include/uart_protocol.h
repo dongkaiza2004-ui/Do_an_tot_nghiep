@@ -43,6 +43,7 @@ typedef enum {
     CMD_STOP_STREAM       = 0x0E,
 
     CMD_ENABLE_LIVENESS_CHECK = 0x10,
+    CMD_SET_ESPNOW_CHANNEL    = 0x11,
 
     // Node A -> Node B
     RSP_ACK               = 0x80,
@@ -184,6 +185,13 @@ typedef struct __attribute__((packed)) {
     uint32_t event_id;
 } payload_face_event_id_t;
 
+//==================================================
+// Payload - Set ESP-NOW WiFi Channel
+//==================================================
+
+typedef struct __attribute__((packed)) {
+    uint8_t channel;   // 1-13, lay tu esp_wifi_get_channel() ben Node B
+} payload_set_channel_t;
 
 //==================================================
 // UART Frame
