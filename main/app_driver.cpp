@@ -13,6 +13,7 @@
 
 #include <app_priv.h>
 #include <bolt_lock_manager.h>
+#include <door_sensor.h>
 #include <platform/PlatformManager.h>
 
 using namespace chip::app::Clusters;
@@ -44,7 +45,7 @@ static void app_driver_toggle_lock([[maybe_unused]] intptr_t arg)
         break;
     case BoltLockManager::State::kUnlockingInitiated:
     case BoltLockManager::State::kUnlockingCompleted:
-        manager.Lock(DoorLock::OperationSourceEnum::kButton);
+        door_sensor_request_lock_when_closed(DoorLock::OperationSourceEnum::kButton); 
         break;
     }
 }

@@ -42,10 +42,15 @@
 #include <comm_uart.h>
 #include <comm_espnow.h>
 #include <access_dashboard.h>
+#include <door_sensor.h>
+#include <esp_wifi.h>
+#include <esp_timer.h>
+#include <servo_door.h>  
 // ============================================================================
 
 static const char *TAG = "app_main";
 uint16_t door_lock_endpoint_id = 0;
+static uint8_t s_last_synced_channel = 0;
 
 using namespace esp_matter;
 using namespace esp_matter::attribute;
@@ -78,12 +83,43 @@ static const uint16_t s_decryption_key_len = decryption_key_end - decryption_key
 static constexpr int kFaceLinkUartTxPin = 17;
 static constexpr int kFaceLinkUartRxPin = 18;
 static constexpr int kFaceLinkUartBaud  = 115200;
+static constexpr gpio_num_t kDoorSensorPin = GPIO_NUM_4;
+
+
+static void sync_espnow_channel_to_node_a(void)
+{
+    uint8_t primary_ch;
+    wifi_second_chan_t second_ch;
+
+    if (esp_wifi_get_channel(&primary_ch, &second_ch) != ESP_OK) {
+        return;   // Wi-Fi chua san sang (chua ket noi), bo qua, se thu lai sau
+    }
+
+    if (primary_ch == 0 || primary_ch == s_last_synced_channel) {
+        return;   // chua co kenh hop le, hoac kenh khong doi -> khong can gui lai
+    }
+
+    esp_err_t err = comm_uart_cmd_set_espnow_channel(primary_ch);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Da gui lenh dong bo kenh ESP-NOW toi Node A: kenh %d", primary_ch);
+        s_last_synced_channel = primary_ch;
+    } else {
+        ESP_LOGW(TAG, "Gui lenh dong bo kenh that bai (%s), se thu lai", esp_err_to_name(err));
+        // KHONG cap nhat s_last_synced_channel -> lan kiem tra dinh ky tiep theo se thu gui lai
+    }
+}
+
+static void channel_sync_timer_cb(void *arg)
+{
+    sync_espnow_channel_to_node_a();
+}
 
 static void app_event_cb(const ChipDeviceEvent *event, intptr_t arg)
 {
     switch (event->Type) {
     case chip::DeviceLayer::DeviceEventType::kInterfaceIpAddressChanged:
         ESP_LOGI(TAG, "Interface IP Address changed");
+        sync_espnow_channel_to_node_a();
         break;
 
     case chip::DeviceLayer::DeviceEventType::kCommissioningComplete:
@@ -206,7 +242,7 @@ extern "C" void app_main()
 #ifdef CONFIG_ENABLE_ALIRO_OVER_NFC
     cluster::door_lock::feature::aliro_provisioning::add(door_lock_cluster);
 #endif
-    cluster::door_lock::attribute::create_auto_relock_time(door_lock_cluster, 5);
+    // cluster::door_lock::attribute::create_auto_relock_time(door_lock_cluster, 5);
 
     door_lock_endpoint_id = endpoint::get_id(endpoint);
     ESP_LOGI(TAG, "Door lock created with endpoint_id %d", door_lock_endpoint_id);
@@ -263,6 +299,18 @@ extern "C" void app_main()
         ESP_LOGE(TAG, "Failed to init comm_espnow, err:%d", err);
     } else {
         comm_espnow_start();
+    }
+    
+    esp_err_t doorSensorErr = door_sensor_init(kDoorSensorPin);
+    if (doorSensorErr != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to init door_sensor, err:%d", doorSensorErr);
+    } else {
+        door_sensor_start();
+    }
+
+    err = servo_door_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to init servo_door, err:%d", err);
     }
 
     err = access_dashboard_start();

@@ -84,6 +84,7 @@ esp_err_t comm_uart_cmd_list_users_request(void);
 esp_err_t comm_uart_cmd_start_stream(void);
 esp_err_t comm_uart_cmd_stop_stream(void);
 esp_err_t comm_uart_cmd_enable_liveness_check(bool enable);
+esp_err_t comm_uart_cmd_set_espnow_channel(uint8_t channel);
 
 #ifdef __cplusplus
 }

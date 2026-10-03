@@ -17,7 +17,6 @@
 #include "freertos/semphr.h"
 
 #include <string.h>
-
 static const char *TAG = "comm_uart";
 static uart_port_t s_port = UART_NUM_1;
 
@@ -373,4 +372,9 @@ esp_err_t comm_uart_cmd_enable_liveness_check(bool enable)
 {
     payload_bool_t p = { .enable = (uint8_t)(enable ? 1 : 0) };
     return comm_uart_send_cmd(CMD_ENABLE_LIVENESS_CHECK, &p, sizeof(p));
+}
+esp_err_t comm_uart_cmd_set_espnow_channel(uint8_t channel)
+{
+    payload_set_channel_t p = { .channel = channel };
+    return comm_uart_send_cmd(CMD_SET_ESPNOW_CHANNEL, &p, sizeof(p));
 }

@@ -274,6 +274,7 @@ esp_err_t comm_espnow_init(void)
         ESP_LOGE(TAG, "esp_now_register_recv_cb that bai: %s", esp_err_to_name(err));
         return err;
     }
+    esp_wifi_set_ps(WIFI_PS_NONE); 
 
     s_frag_queue = xQueueCreate(FRAG_QUEUE_LEN, sizeof(espnow_frame_fragment_t));
     if (!s_frag_queue) {
@@ -304,7 +305,7 @@ esp_err_t comm_espnow_init(void)
 
 void comm_espnow_start(void)
 {
-    xTaskCreatePinnedToCore(espnow_rx_task, "comm_espnow_rx", 4096, NULL, 4, NULL, 0);
+    xTaskCreatePinnedToCore(espnow_rx_task, "comm_espnow_rx", 4096, NULL, 4, NULL, 1);
 }
 
 esp_err_t comm_espnow_register_image_handler(comm_espnow_image_cb_t cb, void *ctx)

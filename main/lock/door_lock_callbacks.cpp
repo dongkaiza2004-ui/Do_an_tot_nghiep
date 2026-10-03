@@ -9,6 +9,8 @@
 #include "bolt_lock_manager.h"
 #include "door_lock_storage.h"
 #include "app_priv.h"
+#include "door_sensor.h" 
+#include "servo_door.h"
 #ifdef CONFIG_ENABLE_ALIRO_OVER_NFC
 #include "aliro_door_lock_delegate.h"
 #endif
@@ -82,8 +84,10 @@ void HandleBoltStateChange(BoltLockManager::State state, BoltLockManager::Operat
     DlLockState lockState = DlLockState::kNotFullyLocked;
     switch (state) {
     case BoltLockManager::State::kLockingInitiated:
+        servo_door_set_open(false);
         break;
     case BoltLockManager::State::kUnlockingInitiated:
+        servo_door_set_open(true); 
         if (source == OperationSourceEnum::kButton) {
             ESP_LOGW(TAG, "Unlock event: source=button user=none credential=none");
         } else if (source == OperationSourceEnum::kAliro) {
@@ -92,9 +96,11 @@ void HandleBoltStateChange(BoltLockManager::State state, BoltLockManager::Operat
         break;
     case BoltLockManager::State::kLockingCompleted:
         lockState = DlLockState::kLocked;
+        door_sensor_cancel_auto_relock();
         break;
     case BoltLockManager::State::kUnlockingCompleted:
         lockState = DlLockState::kUnlocked;
+        door_sensor_arm_auto_relock(kAutoRelockDelayMs, OperationSourceEnum::kAuto);
         break;
     }
 
@@ -136,14 +142,15 @@ void emberAfDoorLockClusterInitCallback(EndpointId endpoint)
     VerifyOrDie(server.SetLockState(endpoint, DlLockState::kLocked, OperationSourceEnum::kUnspecified));
 }
 
-bool emberAfPluginDoorLockOnDoorLockCommand(EndpointId endpoint, const Nullable<FabricIndex>  &fabricIndex,
-                                            const Nullable<NodeId>  &nodeId, const Optional<ByteSpan>  &pin,
-                                            OperationErrorEnum  &error)
+bool emberAfPluginDoorLockOnDoorLockCommand(EndpointId endpoint, const Nullable<FabricIndex> &fabricIndex,
+                                            const Nullable<NodeId> &nodeId, const Optional<ByteSpan> &pin,
+                                            OperationErrorEnum &error)
 {
     DoorLockStorage::PinMatch match;
     bool usedPin = false;
     VerifyOrReturnValue(ValidateRemotePIN(endpoint, pin, match, usedPin, error), false);
-    return BoltLockManager::Instance().Lock(OperationSourceEnum::kRemote);
+    door_sensor_request_lock_when_closed(OperationSourceEnum::kRemote);   
+    return true;                                                         
 }
 
 bool emberAfPluginDoorLockOnDoorUnlockCommand(EndpointId endpoint, const Nullable<FabricIndex>  &fabricIndex,
@@ -202,5 +209,5 @@ bool emberAfPluginDoorLockSetUser(EndpointId endpoint, uint16_t userIndex, Fabri
 
 void emberAfPluginDoorLockOnAutoRelock(EndpointId endpoint)
 {
-    BoltLockManager::Instance().Lock(OperationSourceEnum::kAuto);
+    ESP_LOGW(TAG, "emberAfPluginDoorLockOnAutoRelock duoc goi nhung khong con su dung");
 }
