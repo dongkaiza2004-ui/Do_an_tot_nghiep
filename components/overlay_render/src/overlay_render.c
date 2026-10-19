@@ -189,6 +189,45 @@ static void draw_text(uint16_t *buf, int width, int height, int x, int y, const 
 #define COLOR_YELLOW  0xFFE0
 #define COLOR_WHITE   0xFFFF
 
+#define TEXT_X_MIN   18    
+#define TEXT_X_MAX   142   
+#define TEXT_LINE_H  9     
+
+static int char_advance(char c, int scale)
+{
+    return (isalpha((unsigned char)c) ? 6 : 4) * scale;
+}
+static void draw_text_wrapped(uint16_t *buf, int width, int height, int x_min, int x_max,
+                              int y, const char *text, uint16_t color, int scale)
+{
+    int cx = x_min;
+    int cy = y;
+    const char *p = text;
+
+    while (*p) {
+        if (*p == ' ') {
+            cx += char_advance(' ', scale);
+            p++;
+            continue;
+        }
+
+        const char *word_end = p;
+        int word_w = 0;
+        while (*word_end && *word_end != ' ') {
+            word_w += char_advance(*word_end, scale);
+            word_end++;
+        }
+
+        if (cx > x_min && cx + word_w > x_max) {
+            cx = x_min;
+            cy += TEXT_LINE_H * scale;
+        }
+
+        for (; p < word_end; p++) {
+            cx += draw_char(buf, width, height, cx, cy, *p, color, scale);
+        }
+    }
+}
 //==================================================
 // Overlay Rendering
 //==================================================
@@ -219,7 +258,7 @@ void overlay_render_draw_live( uint16_t *buf, int width, int height, const overl
     if (show_fps) {
         char fps_str[16];
         snprintf(fps_str, sizeof(fps_str), "%d", (int)current_fps);
-        draw_text(buf, width, height, 2, 2, fps_str, COLOR_YELLOW, 1);
+        draw_text(buf, width, height, TEXT_X_MIN, 2, fps_str, COLOR_YELLOW, 1);
     }
 
     //==================================================
@@ -227,10 +266,10 @@ void overlay_render_draw_live( uint16_t *buf, int width, int height, const overl
     //==================================================
 
     if (enrolling && enroll_hint) {
-        draw_text(buf, width, height, 2, height - 8, enroll_hint, COLOR_WHITE, 1);
+        draw_text(buf, width, height, TEXT_X_MIN, height - 8, enroll_hint, COLOR_WHITE, 1);
     }
 
     if (liveness_check && liveness_hint) {
-        draw_text(buf, width, height, 2, 10, liveness_hint, COLOR_YELLOW, 1);
+        draw_text_wrapped(buf, width, height, TEXT_X_MIN, TEXT_X_MAX, 10, liveness_hint, COLOR_YELLOW, 1);
     }
 }

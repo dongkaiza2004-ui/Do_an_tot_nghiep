@@ -200,7 +200,7 @@ static void main_pipeline_task(void *arg)
                                     app_state_get_show_fps(), current_fps, 
                                     est.in_progress, "DUA MAT VAO KHUNG...",
                                     app_state_get_liveness_prompt(), 
-                                    "Xoay dau trai/phai de kiem tra song thuc");
+                                    "Xoay dau trai hoac phai de kiem tra song thuc");
         //==================================================
         // Display Byte Order
         //==================================================
