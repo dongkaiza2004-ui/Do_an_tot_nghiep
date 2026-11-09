@@ -37,6 +37,7 @@ typedef struct {
     uint16_t matter_user_index;    // Chi so user tuong ung tren Matter cluster (0 neu khong map duoc)
     float similarity;              // Do tin cay nhan dien (0 neu khong ap dung)
     int64_t timestamp_us;          // Tu dong dien esp_timer_get_time() neu de = 0 khi publish
+    int64_t unix_time_s;           // Gio that UTC (giay). Tu dien khi publish neu da dong bo SNTP, 0 neu chua biet
 } access_event_t;
 
 typedef void (*access_events_cb_t)(const access_event_t *event, void *ctx);
@@ -50,6 +51,11 @@ esp_err_t access_events_publish(const access_event_t *event);
 
 // Dang ky nhan MOI su kien duoc publish (toi da vai subscriber dong thoi).
 esp_err_t access_events_subscribe(access_events_cb_t cb, void *ctx);
+
+// Nap lai lich su da luu truoc do (vd doc tu the SD luc khoi dong). events theo
+// thu tu CU -> MOI. KHONG goi subscriber. Goi truoc khi co su kien moi.
+esp_err_t access_events_restore(const access_event_t *events, size_t count);
+
 
 // Lay toi da max_count su kien gan nhat, moi nhat truoc. Tra ve so phan tu
 // thuc su duoc chep vao out.

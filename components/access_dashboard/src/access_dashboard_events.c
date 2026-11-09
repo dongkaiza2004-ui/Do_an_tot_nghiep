@@ -9,6 +9,7 @@
 #include "access_dashboard_events.h"
 #include "access_events.h"
 #include "comm_espnow.h"
+#include "sd_storage.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -63,6 +64,11 @@ static void on_image_ready(uint32_t event_id, uint16_t width, uint16_t height,
 {
     (void)ctx;
 
+    if (sd_storage_is_mounted() &&
+        sd_storage_save_image(event_id, jpeg_data, jpeg_len) == ESP_OK) {
+        return;
+    }
+
     uint8_t *copy = (uint8_t *)malloc(jpeg_len);
     if (!copy) {
         ESP_LOGE(TAG, "Khong du bo nho luu cache anh event_id=%u", (unsigned)event_id);
@@ -110,11 +116,10 @@ static void on_image_ready(uint32_t event_id, uint16_t width, uint16_t height,
 
 static void on_access_event(const access_event_t *event, void *ctx)
 {
-    (void)event;
-    (void)ctx;
-    // Lich su da duoc access_events tu luu (access_events_get_recent).
-    // Cho nay danh san cho mo rong sau nay (vd ghi log ra flash/SD/gui MQTT)
-    // ma khong can dung den bolt_lock_manager hay bat ky kieu du lieu Matter nao.
+    // Vong RAM da duoc access_events tu luu. O day chi them ban sao ben vung len the SD
+    // (khong chan: chi dua vao hang doi, task rieng ghi).
+    sd_storage_log_event(event);
+
 }
 
 esp_err_t access_dashboard_events_init(void)
@@ -126,6 +131,17 @@ esp_err_t access_dashboard_events_init(void)
         }
     }
     memset(s_image_cache, 0, sizeof(s_image_cache));
+
+    // Nap lai lich su tu the SD (neu co) de dashboard thay ngay sau khi reboot.
+    if (sd_storage_is_mounted()) {
+        access_event_t restored[HISTORY_QUERY_MAX];
+        size_t n = sd_storage_load_recent_events(restored, HISTORY_QUERY_MAX);
+        if (n > 0) {
+            access_events_restore(restored, n);
+            ESP_LOGI(TAG, "Da nap lai %u su kien tu the SD", (unsigned)n);
+        }
+    }
+
 
     esp_err_t err = comm_espnow_register_image_handler(on_image_ready, NULL);
     if (err != ESP_OK) {
@@ -140,6 +156,25 @@ esp_err_t access_dashboard_events_init(void)
     }
 
     return ESP_OK;
+}
+
+bool access_dashboard_has_image(uint32_t event_id)
+{
+    if (s_cache_mutex) {
+        bool in_ram = false;
+        xSemaphoreTake(s_cache_mutex, portMAX_DELAY);
+        for (int i = 0; i < IMAGE_CACHE_CAPACITY; i++) {
+            if (s_image_cache[i].in_use && s_image_cache[i].event_id == event_id) {
+                in_ram = true;
+                break;
+            }
+        }
+        xSemaphoreGive(s_cache_mutex);
+        if (in_ram) {
+            return true;
+        }
+    }
+    return sd_storage_image_exists(event_id);
 }
 
 esp_err_t access_dashboard_copy_image(uint32_t event_id, uint8_t **out_copy, size_t *out_len)
@@ -165,6 +200,11 @@ esp_err_t access_dashboard_copy_image(uint32_t event_id, uint8_t **out_copy, siz
         }
     }
     xSemaphoreGive(s_cache_mutex);
+    
+    if (result == ESP_ERR_NOT_FOUND && sd_storage_is_mounted()) {
+        result = sd_storage_read_image(event_id, out_copy, out_len);
+    }
+
     return result;
 }
 
@@ -203,13 +243,9 @@ cJSON *access_dashboard_build_history_json(size_t limit)
         }
         cJSON_AddStringToObject(item, "type", type_str);
 
-        uint8_t *img = NULL;
-        size_t img_len = 0;
-        bool has_image = (access_dashboard_copy_image(buffer[i].event_id, &img, &img_len) == ESP_OK);
-        if (has_image) {
-            free(img);
-        }
-        cJSON_AddBoolToObject(item, "has_image", has_image);
+        // unix_time > 0 = gio that (UTC, giay); 0 = chua dong bo gio khi su kien xay ra.
+        cJSON_AddNumberToObject(item, "unix_time", (double)buffer[i].unix_time_s);
+        cJSON_AddBoolToObject(item, "has_image", access_dashboard_has_image(buffer[i].event_id));
 
         cJSON_AddItemToArray(array, item);
     }

@@ -7,6 +7,7 @@
 #include "esp_timer.h"
 #include "esp_log.h"
 
+#include <time.h>
 #include <string.h>
 
 static const char *TAG = "access_events";
@@ -56,6 +57,13 @@ esp_err_t access_events_publish(const access_event_t *event)
     if (copy.timestamp_us == 0) {
         copy.timestamp_us = esp_timer_get_time();
     }
+    if (copy.unix_time_s == 0) {
+        time_t now = time(NULL);
+        if (now > 1700000000) {   // chi nhan khi gio da duoc dong bo (khong phai 1970)
+            copy.unix_time_s = (int64_t)now;
+        }
+    }
+
 
     subscriber_t local[MAX_SUBSCRIBERS];
 
@@ -73,6 +81,22 @@ esp_err_t access_events_publish(const access_event_t *event)
             local[i].cb(&copy, local[i].ctx);
         }
     }
+    return ESP_OK;
+}
+esp_err_t access_events_restore(const access_event_t *events, size_t count)
+{
+    if (!events || !s_mutex) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+    for (size_t i = 0; i < count; i++) {
+        s_history[s_history_head] = events[i];
+        s_history_head = (s_history_head + 1) % HISTORY_CAPACITY;
+        if (s_history_count < HISTORY_CAPACITY) {
+            s_history_count++;
+        }
+    }
+    xSemaphoreGive(s_mutex);
     return ESP_OK;
 }
 

@@ -46,6 +46,8 @@
 #include <esp_wifi.h>
 #include <esp_timer.h>
 #include <servo_door.h>  
+#include <sd_storage.h>
+#include <time_sync.h>
 // ============================================================================
 
 static const char *TAG = "app_main";
@@ -312,7 +314,11 @@ extern "C" void app_main()
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to init servo_door, err:%d", err);
     }
-
+    err = sd_storage_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "SD khong san sang, chay che do RAM, err:%d", err);
+    }
+    time_sync_start();
     err = access_dashboard_start();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to start access_dashboard, err:%d", err);
