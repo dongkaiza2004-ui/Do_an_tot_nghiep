@@ -9,6 +9,7 @@
 #include "esp_log.h"
 #include "esp_heap_caps.h"
 #include "esp_timer.h"
+#include "nvs.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -38,7 +39,7 @@ static char s_names_path[40] = "/spiffs/user_names_mfn.bin";
 #define RESULT_PERSIST_FRAMES    40
 #define LIVENESS_CHECK_FRAMES   20  
 #define LIVENESS_YAW_THRESHOLD  10  
-
+#define EVT_ID_RESERVE  32
 //==================================================
 // Runtime State
 //==================================================
@@ -48,6 +49,7 @@ static HumanFaceRecognizer *s_recognizer = nullptr;
 static QueueHandle_t s_event_queue = nullptr;
 static uint32_t s_frame_counter = 0;
 static uint32_t s_event_id_counter = 0;
+static uint32_t s_event_id_limit   = 0;
 static face_uart_report_cb_t s_uart_report_cb = nullptr;
 
 //==================================================
@@ -82,6 +84,35 @@ typedef struct {
 } user_name_entry_t;
 
 static user_name_entry_t s_users[MAX_USERS];
+
+static void persist_limit(uint32_t v) {
+    nvs_handle_t h;
+    if (nvs_open("face_evt", NVS_READWRITE, &h) == ESP_OK) {
+        nvs_set_u32(h, "hwm", v);
+        nvs_commit(h);
+        nvs_close(h);
+    }
+}
+
+void event_id_init(void) {            // gọi 1 lần khi khởi động face_engine
+    uint32_t v = 0;
+    nvs_handle_t h;
+    if (nvs_open("face_evt", NVS_READONLY, &h) == ESP_OK) {
+        nvs_get_u32(h, "hwm", &v);
+        nvs_close(h);
+    }
+    s_event_id_counter = v;                    // tiếp tục sau mốc cũ
+    s_event_id_limit   = v + EVT_ID_RESERVE;
+    persist_limit(s_event_id_limit);
+}
+
+static uint32_t event_id_next(void) {
+    if (s_event_id_counter + 1 > s_event_id_limit) {
+        s_event_id_limit += EVT_ID_RESERVE;
+        persist_limit(s_event_id_limit);       // lưu TRƯỚC khi cấp ID
+    }
+    return ++s_event_id_counter;
+}
 
 //==================================================
 // Set Database
@@ -251,6 +282,7 @@ esp_err_t face_engine_init(void)
     user_db_load();
     memset(s_cooldown, 0, sizeof(s_cooldown));
 
+    event_id_init();
     ESP_LOGI(TAG, "face_engine init OK");
 
     return ESP_OK;
@@ -425,6 +457,10 @@ static void send_event_image(face_event_type_t type, uint32_t event_id,
 
 int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height, face_result_t *out_results)
 {
+    //==================================================
+    // Prepare Image and Detection
+    //==================================================
+    
     dl::image::img_t img;
 
     img.data = rgb565_buf;
@@ -468,6 +504,8 @@ int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height, face_
     // Liveness Check
     //==================================================
     if (s_liveness_active) {
+
+        // Hiển thị thông tin người đang được kiểm tra
         if (count >= 1) {
             out_results[0].matched    = true;
             out_results[0].user_id    = s_pending_user_id;
@@ -476,6 +514,7 @@ int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height, face_
             out_results[0].name[FACE_ENGINE_NAME_LEN - 1] = '\0';
         }
 
+        // Ước lượng yaw để kiểm tra chuyển động đầu
         if (!results.empty()) {
             int yaw = estimate_yaw(results.front().keypoint);
             if (abs(yaw - s_liveness_baseline) >= LIVENESS_YAW_THRESHOLD) {
@@ -498,10 +537,10 @@ int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height, face_
                                  rgb565_buf, width, height);
             } 
             else {
-
                 s_persist_left = 0;
             }
 
+            // Khi hết thời gian: kết luận và báo sự kiện
             if (s_uart_report_cb) {
                 if (s_liveness_passed) {
                     s_uart_report_cb(FACE_EVENT_LOGIN_SUCCESS, s_pending_event_id,
@@ -533,7 +572,7 @@ int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height, face_
 
 
     //==================================================
-    // Enrollment Capture
+    // Enrollment Capture (đăng ký khuôn mặt)
     //==================================================
 
     if (s_capture_requested && !results.empty()) {
@@ -588,7 +627,8 @@ int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height, face_
                 out_results[0].similarity = rec_res[0].similarity;
                 strncpy(out_results[0].name, evt_name, FACE_ENGINE_NAME_LEN - 1);
                 out_results[0].name[FACE_ENGINE_NAME_LEN - 1] = '\0';
-
+                
+                // Nếu bật kiểm tra sống
                 if (app_state_get_liveness_enabled()) {
                     s_liveness_active   = true;
                     s_liveness_left     = LIVENESS_CHECK_FRAMES;
@@ -596,7 +636,7 @@ int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height, face_
                     s_liveness_passed   = false;
                     s_pending_user_id     = evt_user_id;
                     s_pending_similarity  = rec_res[0].similarity;
-                    s_pending_event_id    = ++s_event_id_counter;
+                    s_pending_event_id    = event_id_next();
                     strncpy(s_pending_name, evt_name, FACE_ENGINE_NAME_LEN - 1);   
                     s_pending_name[FACE_ENGINE_NAME_LEN - 1] = '\0';               
                     app_state_set_liveness_prompt(true);
@@ -629,7 +669,7 @@ int face_engine_process_frame(uint16_t *rgb565_buf, int width, int height, face_
             // UART Report
             //==================================================
 
-            uint32_t event_id = ++s_event_id_counter;
+            uint32_t event_id = event_id_next();
 
             if (s_uart_report_cb) {
                 s_uart_report_cb(evt_type, event_id, evt_user_id, out_results[0].similarity

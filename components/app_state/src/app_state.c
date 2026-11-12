@@ -42,7 +42,7 @@ static float s_threshold = 0.55f;
 // Các tham số hình ảnh của Camera.
 static int8_t s_brightness = 0;
 static int8_t s_contrast   = 0;
-static bool   s_flip       = true;
+static bool   s_flip       = false;
 static bool   s_mirror     = true;
 
 //==================================================
