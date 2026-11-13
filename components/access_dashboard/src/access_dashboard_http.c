@@ -384,6 +384,21 @@ static esp_err_t handle_user_delete(httpd_req_t *req)
              result.success ? "true" : "false", (unsigned)result.user_id);
     return httpd_resp_sendstr(req, out);
 }
+//==========================================================================
+// Kiem tra mien gia tri (cung gioi han voi Node A, dinh nghia trong uart_protocol.h)
+// Dung valuedouble de bat so khong nguyen / qua lon, tranh ep kieu cat bot (vd 300 -> 44).
+//==========================================================================
+static bool json_is_int_in_cam_range(const cJSON *item)
+{
+    return item->valuedouble == (double)item->valueint && uart_cam_param_valid(item->valueint);
+}
+
+static bool json_is_valid_model_id(const cJSON *item)
+{
+    return item->valuedouble == (double)item->valueint && uart_model_id_valid(item->valueint);
+}
+
+
 
 //==========================================================================
 // POST /api/camera  {"brightness":N,"contrast":N,"flip":bool,"mirror":bool}
@@ -405,6 +420,17 @@ static esp_err_t handle_camera_config(httpd_req_t *req)
     }
 
     cJSON *item;
+
+    if ((item = cJSON_GetObjectItem(json, "brightness")) && cJSON_IsNumber(item) && !json_is_int_in_cam_range(item)) {
+        cJSON_Delete(json);
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "brightness phai la so nguyen trong khoang -3..3");
+        return ESP_FAIL;
+    }
+    if ((item = cJSON_GetObjectItem(json, "contrast")) && cJSON_IsNumber(item) && !json_is_int_in_cam_range(item)) {
+        cJSON_Delete(json);
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "contrast phai la so nguyen trong khoang -3..3");
+        return ESP_FAIL;
+    }
     if ((item = cJSON_GetObjectItem(json, "brightness")) && cJSON_IsNumber(item)) {
         comm_uart_cmd_set_brightness((int8_t)item->valueint);
     }
@@ -470,6 +496,17 @@ static esp_err_t handle_recognition_config(httpd_req_t *req)
     }
 
     cJSON *item;
+    if ((item = cJSON_GetObjectItem(json, "model_id")) && cJSON_IsNumber(item) && !json_is_valid_model_id(item)) {
+        cJSON_Delete(json);
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "model_id khong hop le (chi 0 hoac 1)");
+        return ESP_FAIL;
+    }
+    if ((item = cJSON_GetObjectItem(json, "threshold")) && cJSON_IsNumber(item) &&
+        !uart_threshold_valid((float)item->valuedouble)) {
+        cJSON_Delete(json);
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "threshold phai trong khoang 0.30..1.00");
+        return ESP_FAIL;
+    }
     if ((item = cJSON_GetObjectItem(json, "model_id")) && cJSON_IsNumber(item)) {
         comm_uart_cmd_set_model((uint8_t)item->valueint);
     }

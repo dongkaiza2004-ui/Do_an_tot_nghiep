@@ -2,11 +2,38 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+
+//==================================================
+// Gioi han gia tri cua cac lenh cau hinh
+//==================================================
+
+#define UART_MODEL_ID_MAX      1        // 0 = MFN, 1 = MBF
+#define UART_THRESHOLD_MIN     0.30f    // san an toan, chinh theo ket qua do FAR/FRR cua ban
+#define UART_THRESHOLD_MAX     1.00f
+#define UART_CAM_PARAM_MIN     (-3)     // do sang / tuong phan (khoang chung cua cac cam bien OV)
+#define UART_CAM_PARAM_MAX     3
+
+static inline bool uart_model_id_valid(int id)
+{
+    return id >= 0 && id <= UART_MODEL_ID_MAX;
+}
+
+// (t == t) loai NaN; so sanh khoang loai luon +-inf
+static inline bool uart_threshold_valid(float t)
+{
+    return (t == t) && t >= UART_THRESHOLD_MIN && t <= UART_THRESHOLD_MAX;
+}
+
+static inline bool uart_cam_param_valid(int v)
+{
+    return v >= UART_CAM_PARAM_MIN && v <= UART_CAM_PARAM_MAX;
+}
 
 //==================================================
 // UART Frame Configuration

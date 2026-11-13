@@ -116,8 +116,8 @@
   <div class="card">
     <h2>Cấu hình camera</h2>
     <div class="row">
-      <div class="field"><label>Brightness (-127..127)</label><input type="number" id="brightness" value="0"></div>
-      <div class="field"><label>Contrast (-127..127)</label><input type="number" id="contrast" value="0"></div>
+      <div class="field"><label>Brightness (-3..3)</label><input type="number" id="brightness" value="0" min="-3" max="3" step="1"></div>
+      <div class="field"><label>Contrast (-3..3)</label><input type="number" id="contrast" value="0" min="-3" max="3" step="1"></div>
     </div>
     <div class="row">
       <label class="checkbox-row"><input type="checkbox" id="flip"> Lật ảnh (flip)</label>
@@ -134,7 +134,7 @@
     <h2>Nhận diện khuôn mặt</h2>
     <div class="row">
       <div class="field"><label>Model ID</label><input type="number" id="modelId" value="0"></div>
-      <div class="field"><label>Ngưỡng tương đồng (threshold)</label><input type="number" id="threshold" value="0.5" step="0.01"></div>
+      <div class="field"><label>Ngưỡng tương đồng (threshold, 0.30..1.00)</label><input type="number" id="threshold" value="0.5" step="0.01" min="0.30" max="1.00"></div>
     </div>
     <div class="row">
       <button onclick="applyRecognition()">Áp dụng</button>
