@@ -119,6 +119,9 @@ esp_err_t app_state_init(void)
         if (nvs_get_i32(h, "light_thresh", &tmp32) == ESP_OK) {
             s_light_threshold = tmp32;
         }
+        if (nvs_get_u8(h, "liveness", &tmp8) == ESP_OK) {
+            s_liveness_enabled = tmp8 != 0;
+        }
 
         nvs_close(h);
 
@@ -152,6 +155,7 @@ void app_state_save_to_nvs(void)
     nvs_set_u8(h, "flip", s_flip ? 1 : 0);
     nvs_set_u8(h, "mirror", s_mirror ? 1 : 0);
     nvs_set_i32(h, "light_thresh", s_light_threshold);
+    nvs_set_u8(h, "liveness", s_liveness_enabled ? 1 : 0);
 
     UNLOCK();
 

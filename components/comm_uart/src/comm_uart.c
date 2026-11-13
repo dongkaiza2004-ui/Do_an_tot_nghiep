@@ -104,8 +104,14 @@ static void handle_command(uint8_t cmd, const uint8_t *payload, uint8_t len)
 
             payload_set_model_t p;
             memcpy(&p, payload, sizeof(p));
+            if (!uart_model_id_valid(p.model_id)) {
+                ESP_LOGW(TAG, "SET_MODEL: model_id=%d ngoai mien hop le, tu choi", (int)p.model_id);
+                send_nack();
+                break;
+            }
 
             face_engine_switch_model((recog_model_t)p.model_id);
+            app_state_save_to_nvs(); 
             send_ack();
             break;
         }
@@ -119,7 +125,15 @@ static void handle_command(uint8_t cmd, const uint8_t *payload, uint8_t len)
             payload_set_threshold_t p;
             memcpy(&p, payload, sizeof(p));
 
+            if (!uart_threshold_valid(p.threshold)) {
+                ESP_LOGW(TAG, "SET_THRESHOLD: nguong=%f ngoai mien [%.2f, %.2f], tu choi",
+                         (double)p.threshold, (double)UART_THRESHOLD_MIN, (double)UART_THRESHOLD_MAX);
+                send_nack();
+                break;
+            }
+
             face_engine_set_threshold(p.threshold);
+            app_state_save_to_nvs();
             send_ack();
             break;
         }
@@ -138,11 +152,18 @@ static void handle_command(uint8_t cmd, const uint8_t *payload, uint8_t len)
             payload_set_int_param_t p;
             memcpy(&p, payload, sizeof(p));
 
+            if (!uart_cam_param_valid(p.value)) {
+                ESP_LOGW(TAG, "SET_BRIGHTNESS: %d ngoai mien [%d, %d], tu choi",
+                         (int)p.value, UART_CAM_PARAM_MIN, UART_CAM_PARAM_MAX);
+                send_nack();
+                break;
+            }
+
             app_state_set_cam_param(p.value, app_state_get_contrast(),
                                      app_state_get_flip(), app_state_get_mirror());
             cam_driver_apply_sensor_config(app_state_get_brightness(), app_state_get_contrast(),
                                             app_state_get_flip(), app_state_get_mirror());
-
+            app_state_save_to_nvs();
             send_ack();
             break;
         }
@@ -156,10 +177,18 @@ static void handle_command(uint8_t cmd, const uint8_t *payload, uint8_t len)
             payload_set_int_param_t p;
             memcpy(&p, payload, sizeof(p));
 
+            if (!uart_cam_param_valid(p.value)) {
+                ESP_LOGW(TAG, "SET_CONTRAST: %d ngoai mien [%d, %d], tu choi",
+                         (int)p.value, UART_CAM_PARAM_MIN, UART_CAM_PARAM_MAX);
+                send_nack();
+                break;
+            }
+
             app_state_set_cam_param(app_state_get_brightness(), p.value,
                                      app_state_get_flip(), app_state_get_mirror());
             cam_driver_apply_sensor_config(app_state_get_brightness(), app_state_get_contrast(),
                                             app_state_get_flip(), app_state_get_mirror());
+            app_state_save_to_nvs();
 
             send_ack();
             break;
@@ -178,7 +207,7 @@ static void handle_command(uint8_t cmd, const uint8_t *payload, uint8_t len)
                                      p.enable != 0, app_state_get_mirror());
             cam_driver_apply_sensor_config(app_state_get_brightness(), app_state_get_contrast(),
                                             app_state_get_flip(), app_state_get_mirror());
-
+            app_state_save_to_nvs();
             send_ack();
             break;
         }
@@ -196,7 +225,7 @@ static void handle_command(uint8_t cmd, const uint8_t *payload, uint8_t len)
                                      app_state_get_flip(), p.enable != 0);
             cam_driver_apply_sensor_config(app_state_get_brightness(), app_state_get_contrast(),
                                             app_state_get_flip(), app_state_get_mirror());
-
+            app_state_save_to_nvs();
             send_ack();
             break;
         }
@@ -310,8 +339,12 @@ static void handle_command(uint8_t cmd, const uint8_t *payload, uint8_t len)
                 send_nack(); 
                 break; 
             }
-            payload_bool_t p; memcpy(&p, payload, sizeof(p));
+            payload_bool_t p; 
+            memcpy(&p, payload, sizeof(p));
+
             app_state_set_liveness_enabled(p.enable != 0);
+            app_state_save_to_nvs();
+
             send_ack();
             break;
         }
