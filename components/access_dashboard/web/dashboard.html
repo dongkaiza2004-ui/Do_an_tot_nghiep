@@ -100,8 +100,9 @@
 
     <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:12px;">
       <div class="row">
-        <div class="field"><label>User ID</label><input type="number" id="addUserId" placeholder="1"></div>
+        <div class="field"><label>User ID (1..6)</label><input type="number" id="addUserId" placeholder="1" min="1" step="1"></div>
         <div class="field" style="flex:2"><label>Tên</label><input type="text" id="addUserName" placeholder="Nguyen Van A"></div>
+        <div class="field"><label>Mã PIN (6–8 chữ số)</label><input type="password" id="addUserPin" inputmode="numeric" pattern="[0-9]*" minlength="6" maxlength="8" autocomplete="off" placeholder="••••••"></div>
       </div>
       <div class="row">
         <button onclick="userAddStart()">1. Bắt đầu đăng ký</button>
@@ -155,9 +156,10 @@
 <script>
 async function api(path, opts) {
   const res = await fetch(path, opts);
+  const text = await res.text();
   let data = null;
-  try { data = await res.json(); } catch (e) {}
-  return { ok: res.ok, status: res.status, data };
+  try { data = JSON.parse(text); } catch (e) {}
+  return { ok: res.ok, status: res.status, data, text };
 }
 
 function setMsg(id, text, ok) {
@@ -233,24 +235,34 @@ async function loadUsers() {
 async function userDelete(id) {
   if (!confirm('Xóa user ' + id + '?')) return;
   const r = await api('/api/users/' + id, { method: 'DELETE' });
+  if (r.data && r.data.ok && r.data.matter_removed === false) {
+    alert('Đã xóa khuôn mặt nhưng KHÔNG gỡ được quyền trên khóa. Kiểm tra lại bằng console: matter esp dl users');
+  }
   loadUsers();
 }
 
 async function userAddStart() {
   const id = document.getElementById('addUserId').value;
   const name = document.getElementById('addUserName').value;
+  const pinEl = document.getElementById('addUserPin');
+  const pin = pinEl.value;
+
   if (!id || !name) { setMsg('addUserMsg', 'Nhập đủ User ID và Tên', false); return; }
+  if (!/^\d{6,8}$/.test(pin)) { setMsg('addUserMsg', 'PIN phải gồm 6–8 chữ số (0-9)', false); return; }
+
   const r = await api('/api/users/start', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user_id: Number(id), name })
+    body: JSON.stringify({ user_id: Number(id), name, pin })
   });
-  setMsg('addUserMsg', r.ok ? 'Đã gửi lệnh bắt đầu đăng ký, giờ bấm "Chụp"' : 'Lỗi gửi lệnh', r.ok);
+  pinEl.value = '';   // khong de PIN nam lai tren man hinh
+  setMsg('addUserMsg', r.ok ? 'Đã gửi lệnh bắt đầu đăng ký, giờ bấm "Chụp"' : (r.text || 'Lỗi gửi lệnh'), r.ok);
 }
 
 async function userAddCapture() {
   const r = await api('/api/users/capture', { method: 'POST' });
   if (r.data && r.data.ok) {
-    setMsg('addUserMsg', `Đăng ký thành công: ${r.data.name} (id ${r.data.user_id})`, true);
+    const lock = r.data.matter_registered ? ' — đã cấp quyền mở cửa bằng khuôn mặt và PIN' : '';
+    setMsg('addUserMsg', `Đăng ký thành công: ${r.data.name} (id ${r.data.user_id})${lock}`, true);
     loadUsers();
   } else {
     setMsg('addUserMsg', (r.data && r.data.error) || 'Chụp thất bại / hết thời gian chờ', false);

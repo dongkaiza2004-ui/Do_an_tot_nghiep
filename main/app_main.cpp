@@ -21,6 +21,7 @@
 #include <common_macros.h>
 #include <app_priv.h>
 #include <door_lock_capabilities.h>
+#include <door_lock_provision.h>
 #if CONFIG_ENABLE_CHIP_SHELL
 #include <door_lock_console.h>
 #endif // CONFIG_ENABLE_CHIP_SHELL
@@ -319,6 +320,11 @@ extern "C" void app_main()
         ESP_LOGE(TAG, "SD khong san sang, chay che do RAM, err:%d", err);
     }
     time_sync_start();
+    // Dang ky nguoi dung (PIN) tren khoa khi dashboard dang ky khuon mat xong (xem door_lock_provision.cpp)
+    err = access_dashboard_set_user_provisioner(door_lock_dashboard_provisioner());
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to set dashboard user provisioner, err:%d", err);
+    }
     err = access_dashboard_start();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to start access_dashboard, err:%d", err);

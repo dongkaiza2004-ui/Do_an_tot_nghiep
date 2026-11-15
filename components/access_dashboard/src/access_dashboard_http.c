@@ -46,6 +46,20 @@ typedef struct {
     QueueHandle_t queue;
 } wait_ctx_t;
 
+#define ENROLL_PENDING_TTL_MS 180000
+
+typedef struct {
+    bool active;
+    uint16_t user_id;
+    char name[24];
+    char pin[ACCESS_USER_PIN_BUF];
+    TickType_t started;
+} pending_enroll_t;
+
+static pending_enroll_t s_pending;
+static access_user_provisioner_t s_prov;
+static bool s_prov_set = false;
+
 static esp_err_t handle_root(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "text/html; charset=utf-8");
@@ -281,6 +295,73 @@ static esp_err_t handle_users_list(httpd_req_t *req)
     return send_json_and_free(req, array, "[]");
 }
 
+static void secure_zero(void *p, size_t n)
+{
+    volatile uint8_t *v = (volatile uint8_t *)p;
+    while (n--) {
+        *v++ = 0;
+    }
+}
+
+static void pending_clear(void)
+{
+    secure_zero(&s_pending, sizeof(s_pending));
+}
+
+esp_err_t access_dashboard_set_user_provisioner(const access_user_provisioner_t *p)
+{
+    pending_clear();
+    if (!p) {
+        s_prov_set = false;
+        memset(&s_prov, 0, sizeof(s_prov));
+        return ESP_OK;
+    }
+    if (!p->register_user || p->max_user_index == 0 || p->pin_min_len == 0 ||
+        p->pin_max_len < p->pin_min_len || p->pin_max_len >= ACCESS_USER_PIN_BUF) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    s_prov = *p;
+    s_prov_set = true;
+    return ESP_OK;
+}
+
+static bool pin_is_valid(const char *pin)
+{
+    size_t n = strlen(pin);
+    if (n < s_prov.pin_min_len || n > s_prov.pin_max_len) {
+        return false;
+    }
+    for (size_t i = 0; i < n; i++) {
+        if (pin[i] < '0' || pin[i] > '9') {
+            return false;
+        }
+    }
+    return true;
+}
+
+static void zero_json_string(cJSON *item)
+{
+    if (item && cJSON_IsString(item) && item->valuestring) {
+        secure_zero(item->valuestring, strlen(item->valuestring));
+    }
+}
+
+// Gui CMD_SUB_USER va tra ve true neu Node A xac nhan da xoa khuon mat.
+static bool rollback_face(uint16_t user_id)
+{
+    payload_sub_user_t sub = { .user_id = user_id };
+    pending_response_t resp;
+    if (!send_and_wait_once(CMD_SUB_USER, &sub, sizeof(sub), &resp, pdMS_TO_TICKS(3000))) {
+        return false;
+    }
+    if (resp.rsp_cmd != RSP_SUB_USER_RESULT || resp.len < sizeof(payload_sub_user_result_t)) {
+        return false;
+    }
+    payload_sub_user_result_t r;
+    memcpy(&r, resp.payload, sizeof(r));
+    return r.success != 0;
+}
+
 //==========================================================================
 // POST /api/users/start  {"user_id":N,"name":"..."}
 //==========================================================================
@@ -294,6 +375,7 @@ static esp_err_t handle_user_add_start(httpd_req_t *req)
     }
 
     cJSON *json = cJSON_Parse(body);
+    secure_zero(body, strlen(body)); 
     free(body);
     if (!json) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "JSON khong hop le");
@@ -302,20 +384,74 @@ static esp_err_t handle_user_add_start(httpd_req_t *req)
 
     cJSON *user_id_item = cJSON_GetObjectItem(json, "user_id");
     cJSON *name_item = cJSON_GetObjectItem(json, "name");
+    cJSON *pin_item = cJSON_GetObjectItem(json, "pin");
     if (!cJSON_IsNumber(user_id_item) || !cJSON_IsString(name_item)) {
+        zero_json_string(pin_item);
         cJSON_Delete(json);
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Thieu truong user_id (so) hoac name (chuoi)");
+        return ESP_FAIL;
+    }
+
+    // user_id phai la so nguyen trong 1..max (max do bo dang ky khoa cho biet, mac dinh 65535)
+    const int max_id = s_prov_set ? (int)s_prov.max_user_index : 65535;
+    char msg[96];
+    if (user_id_item->valuedouble != (double)user_id_item->valueint ||
+        user_id_item->valueint < 1 || user_id_item->valueint > max_id) {
+        snprintf(msg, sizeof(msg), "user_id phai la so nguyen trong khoang 1..%d", max_id);
+        zero_json_string(pin_item);
+        cJSON_Delete(json);
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, msg);
         return ESP_FAIL;
     }
 
     uint16_t user_id = (uint16_t)user_id_item->valueint;
     char name[24] = {0};
     strncpy(name, name_item->valuestring, sizeof(name) - 1);
+
+    char pin[ACCESS_USER_PIN_BUF] = {0};
+    if (s_prov_set) {
+        if (!cJSON_IsString(pin_item) || !pin_is_valid(pin_item->valuestring)) {
+            // KHONG dua PIN vao thong bao loi
+            snprintf(msg, sizeof(msg), "PIN phai gom %u..%u chu so (0-9)",
+                     (unsigned)s_prov.pin_min_len, (unsigned)s_prov.pin_max_len);
+            zero_json_string(pin_item);
+            cJSON_Delete(json);
+            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, msg);
+            return ESP_FAIL;
+        }
+        strncpy(pin, pin_item->valuestring, sizeof(pin) - 1);
+    }
+    zero_json_string(pin_item);
     cJSON_Delete(json);
 
+    if (s_prov_set) {
+        // Kiem tra som, TRUOC khi bat nguoi dung chup anh, de khong chup xong moi bao loi
+        if (s_prov.user_exists && s_prov.user_exists(user_id)) {
+            secure_zero(pin, sizeof(pin));
+            snprintf(msg, sizeof(msg), "User ID %u da ton tai tren khoa. Xoa nguoi dung do truoc khi dang ky lai",
+                     (unsigned)user_id);
+            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, msg);
+            return ESP_FAIL;
+        }
+        if (s_prov.pin_in_use && s_prov.pin_in_use(pin)) {
+            secure_zero(pin, sizeof(pin));
+            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "PIN nay da duoc nguoi dung khac su dung, hay chon PIN khac");
+            return ESP_FAIL;
+        }
+    }
     comm_uart_cmd_add_user_start(user_id, name);
 
+    pending_clear();
+    if (s_prov_set) {
+        s_pending.active = true;
+        s_pending.user_id = user_id;
+        memcpy(s_pending.name, name, sizeof(s_pending.name));
+        memcpy(s_pending.pin, pin, sizeof(s_pending.pin));
+        s_pending.started = xTaskGetTickCount();
+    }
+    secure_zero(pin, sizeof(pin));
     httpd_resp_set_type(req, "application/json");
+
     return httpd_resp_sendstr(req,
         "{\"ok\":true,\"note\":\"da gui lenh bat dau dang ky, goi tiep /api/users/capture khi san sang chup\"}");
 }
@@ -340,10 +476,58 @@ static esp_err_t handle_user_add_capture(httpd_req_t *req)
     char name_buf[sizeof(result.name) + 1] = {0};
     memcpy(name_buf, result.name, sizeof(result.name));
 
+    const bool face_ok = result.success != 0;
+    bool matter_ok = false;
+    bool rolled_back = false;
+    char error[200] = {0};
+
+    if (!face_ok) {
+        pending_clear();
+        snprintf(error, sizeof(error), "Camera bao dang ky khuon mat that bai");
+    } else if (s_prov_set) {
+        // === Node A DA BAO THANH CONG -> bay gio moi dang ky tren khoa ===
+        const bool valid_pending = s_pending.active && s_pending.user_id == result.user_id &&
+                                   (TickType_t)(xTaskGetTickCount() - s_pending.started) <= pdMS_TO_TICKS(ENROLL_PENDING_TTL_MS);
+        if (!valid_pending) {
+            snprintf(error, sizeof(error),
+                     "Phien dang ky khong con hieu luc (het han hoac chua bam 'Bat dau')");
+        } else {
+            access_user_prov_result_t pr = s_prov.register_user(result.user_id, s_pending.name, s_pending.pin);
+            if (pr == ACCESS_USER_PROV_OK) {
+                matter_ok = true;
+            } else if (pr == ACCESS_USER_PROV_ERR_EXISTS || pr == ACCESS_USER_PROV_ERR_CREDENTIAL_SLOT_BUSY) {
+                snprintf(error, sizeof(error), "User ID %u da ton tai tren khoa", (unsigned)result.user_id);
+            } else if (pr == ACCESS_USER_PROV_ERR_PIN_IN_USE) {
+                snprintf(error, sizeof(error), "PIN nay da duoc nguoi dung khac su dung");
+            } else {
+                snprintf(error, sizeof(error), "Khong ghi duoc nguoi dung vao khoa (loi luu tru)");
+            }
+        }
+        pending_clear();
+        if (!matter_ok) {
+            rolled_back = rollback_face(result.user_id);   // tat ca hoac khong gi
+            size_t n = strlen(error);
+            snprintf(error + n, sizeof(error) - n, rolled_back
+                     ? ". Da huy khuon mat vua dang ky tren camera"
+                     : ". CANH BAO: khong xoa duoc khuon mat tren camera, hay xoa thu cong user nay");
+        }
+    }
+
+
     cJSON *obj = cJSON_CreateObject();
-    cJSON_AddBoolToObject(obj, "ok", result.success != 0);
+    cJSON_AddBoolToObject(obj, "ok", face_ok && (!s_prov_set || matter_ok));
     cJSON_AddNumberToObject(obj, "user_id", result.user_id);
     cJSON_AddStringToObject(obj, "name", name_buf);
+
+    if (s_prov_set) {
+        cJSON_AddBoolToObject(obj, "matter_registered", matter_ok);
+        if (face_ok && !matter_ok) {
+            cJSON_AddBoolToObject(obj, "face_rolled_back", rolled_back);
+        }
+    }
+    if (error[0]) {
+        cJSON_AddStringToObject(obj, "error", error);
+    }
 
     return send_json_and_free(req, obj, "{\"ok\":false}");
 }
@@ -365,7 +549,13 @@ static esp_err_t handle_user_add_cancel(httpd_req_t *req)
 
 static esp_err_t handle_user_delete(httpd_req_t *req)
 {
-    uint16_t user_id = (uint16_t)parse_trailing_id(req->uri);
+
+    int parsed_id = parse_trailing_id(req->uri);
+    if (s_prov_set && (parsed_id < 1 || parsed_id > (int)s_prov.max_user_index)) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "user_id khong hop le");
+        return ESP_FAIL;
+    }
+    uint16_t user_id = (uint16_t)parsed_id;
 
     payload_sub_user_t sub_payload = { .user_id = user_id };
     pending_response_t resp;
@@ -379,9 +569,20 @@ static esp_err_t handle_user_delete(httpd_req_t *req)
     payload_sub_user_result_t result;
     memcpy(&result, resp.payload, sizeof(result));
 
-    char out[96];
-    snprintf(out, sizeof(out), "{\"ok\":%s,\"user_id\":%u}",
-             result.success ? "true" : "false", (unsigned)result.user_id);
+    // Chi go quyen tren khoa SAU KHI Node A xac nhan da xoa khuon mat (cung thu tu voi luc dang ky)
+    const bool manage_lock = s_prov_set && s_prov.unregister_user;
+    bool matter_removed = false;
+    if (result.success && manage_lock) {
+        matter_removed = s_prov.unregister_user(result.user_id);
+    }
+    char out[128];
+    if (manage_lock) {
+        snprintf(out, sizeof(out), "{\"ok\":%s,\"user_id\":%u,\"matter_removed\":%s}",
+                 result.success ? "true" : "false", (unsigned)result.user_id, matter_removed ? "true" : "false");
+    } else {
+        snprintf(out, sizeof(out), "{\"ok\":%s,\"user_id\":%u}",
+                 result.success ? "true" : "false", (unsigned)result.user_id);
+    }
     return httpd_resp_sendstr(req, out);
 }
 //==========================================================================
