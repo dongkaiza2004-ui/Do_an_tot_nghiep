@@ -91,36 +91,60 @@ static esp_timer_handle_t s_channel_sync_start_timer = nullptr;
 
 static void sync_espnow_channel_to_node_a(void)
 {
-    uint8_t primary_ch;
-    wifi_second_chan_t second_ch;
-
-    if (esp_wifi_get_channel(&primary_ch, &second_ch) != ESP_OK) {
-        return;   // Wi-Fi chua san sang (chua ket noi), bo qua, se thu lai sau
+    wifi_ap_record_t ap;
+    if (esp_wifi_sta_get_ap_info(&ap) != ESP_OK) {
+        return;   // chua ket noi AP that, bo qua
     }
 
-    if (primary_ch == 0 || primary_ch == s_last_synced_channel) {
-        return;   // chua co kenh hop le, hoac kenh khong doi -> khong can gui lai
+    uint8_t primary_ch = ap.primary;
+    if (primary_ch == 0) {
+        return;
     }
 
     esp_err_t err = comm_uart_cmd_set_espnow_channel(primary_ch);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "Da gui lenh dong bo kenh ESP-NOW toi Node A: kenh %d", primary_ch);
-        s_last_synced_channel = primary_ch;
-    } else {
-        ESP_LOGW(TAG, "Gui lenh dong bo kenh that bai (%s), se thu lai", esp_err_to_name(err));
-        // KHONG cap nhat s_last_synced_channel -> lan kiem tra dinh ky tiep theo se thu gui lai
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Gui lenh dong bo kenh that bai (%s)", esp_err_to_name(err));
+        return;
     }
+
+    // Chi log khi kenh thay doi de tranh spam moi 15 giay
+    if (primary_ch != s_last_synced_channel) {
+        ESP_LOGI(TAG, "Dong bo kenh ESP-NOW toi Node A: kenh %d", primary_ch);
+        s_last_synced_channel = primary_ch;
+    }
+}
+static esp_timer_handle_t s_channel_resend_timer = nullptr;
+
+static void channel_resend_cb(void *arg)
+{
+    sync_espnow_channel_to_node_a();
 }
 static void channel_sync_start_timer_cb(void *arg)
 {
+    ESP_LOGI(TAG, "Het thoi gian tre 3 giay, thu dong bo kenh");
     sync_espnow_channel_to_node_a();
+}
+static void restart_channel_sync_timer(void)
+{
+    if (s_channel_sync_start_timer == nullptr) {
+        return;
+    }
+
+    if (esp_timer_is_active(s_channel_sync_start_timer)) {
+        esp_timer_stop(s_channel_sync_start_timer);
+    }
+
+    esp_err_t err = esp_timer_start_once(s_channel_sync_start_timer, 3000000);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Khong the dat lai timer dong bo kenh: %s", esp_err_to_name(err));
+    }
 }
 static void app_event_cb(const ChipDeviceEvent *event, intptr_t arg)
 {
     switch (event->Type) {
     case chip::DeviceLayer::DeviceEventType::kInterfaceIpAddressChanged:
-        ESP_LOGI(TAG, "Interface IP Address changed");
-        sync_espnow_channel_to_node_a();
+        ESP_LOGI(TAG, "Interface IP Address changed, dat lai timer 3 giay");
+        restart_channel_sync_timer();
         break;
 
     case chip::DeviceLayer::DeviceEventType::kCommissioningComplete:
@@ -311,6 +335,15 @@ extern "C" void app_main()
     ESP_ERROR_CHECK(esp_timer_create(&timer_args, &s_channel_sync_start_timer));
     ESP_ERROR_CHECK(esp_timer_start_once(s_channel_sync_start_timer, 3000000));
     
+    // const esp_timer_create_args_t resend_args = {
+    //     .callback = channel_resend_cb,
+    //     .arg = nullptr,
+    //     .dispatch_method = ESP_TIMER_TASK,
+    //     .name = "channel_resend"
+    // };
+    // ESP_ERROR_CHECK(esp_timer_create(&resend_args, &s_channel_resend_timer));
+    // ESP_ERROR_CHECK(esp_timer_start_periodic(s_channel_resend_timer, 15 * 1000000));
+
     esp_err_t doorSensorErr = door_sensor_init(kDoorSensorPin);
     if (doorSensorErr != ESP_OK) {
         ESP_LOGE(TAG, "Failed to init door_sensor, err:%d", doorSensorErr);
