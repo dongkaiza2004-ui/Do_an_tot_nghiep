@@ -49,10 +49,16 @@ bool PinMatchesLocked(const char *pin)
     return DoorLockStorage::Instance().ValidatePIN(pinSpan, match);
 }
 
-bool SlotInUse(uint16_t userIndex)
+bool UserExists(uint16_t userIndex)
 {
     esp_matter::lock::ScopedChipStackLock lock(portMAX_DELAY);
-    return UserOccupiedLocked(userIndex) || CredentialOccupiedLocked(userIndex);
+    return UserOccupiedLocked(userIndex);
+}
+
+bool CredentialSlotBusy(uint16_t userIndex)
+{
+    esp_matter::lock::ScopedChipStackLock lock(portMAX_DELAY);
+    return CredentialOccupiedLocked(userIndex);
 }
 
 bool PinInUse(const char *pin)
@@ -147,7 +153,8 @@ extern "C" const access_user_provisioner_t *door_lock_dashboard_provisioner(void
     provisioner.max_user_index = DoorLockCapabilities::kUsers;
     provisioner.pin_min_len = kPinMinLen;
     provisioner.pin_max_len = kPinMaxLen;
-    provisioner.user_exists = SlotInUse;
+    provisioner.user_exists = UserExists;
+    provisioner.credential_slot_busy = CredentialSlotBusy;
     provisioner.pin_in_use = PinInUse;
     provisioner.register_user = RegisterUser;
     provisioner.unregister_user = UnregisterUser;

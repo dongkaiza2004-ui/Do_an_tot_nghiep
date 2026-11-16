@@ -87,7 +87,7 @@ static constexpr int kFaceLinkUartTxPin = 17;
 static constexpr int kFaceLinkUartRxPin = 18;
 static constexpr int kFaceLinkUartBaud  = 115200;
 static constexpr gpio_num_t kDoorSensorPin = GPIO_NUM_4;
-
+static esp_timer_handle_t s_channel_sync_start_timer = nullptr;
 
 static void sync_espnow_channel_to_node_a(void)
 {
@@ -111,12 +111,10 @@ static void sync_espnow_channel_to_node_a(void)
         // KHONG cap nhat s_last_synced_channel -> lan kiem tra dinh ky tiep theo se thu gui lai
     }
 }
-
-static void channel_sync_timer_cb(void *arg)
+static void channel_sync_start_timer_cb(void *arg)
 {
     sync_espnow_channel_to_node_a();
 }
-
 static void app_event_cb(const ChipDeviceEvent *event, intptr_t arg)
 {
     switch (event->Type) {
@@ -303,6 +301,15 @@ extern "C" void app_main()
     } else {
         comm_espnow_start();
     }
+    const esp_timer_create_args_t timer_args = {
+        .callback = channel_sync_start_timer_cb,
+        .arg = nullptr,
+        .dispatch_method = ESP_TIMER_TASK,
+        .name = "channel_sync_start"
+    };
+
+    ESP_ERROR_CHECK(esp_timer_create(&timer_args, &s_channel_sync_start_timer));
+    ESP_ERROR_CHECK(esp_timer_start_once(s_channel_sync_start_timer, 3000000));
     
     esp_err_t doorSensorErr = door_sensor_init(kDoorSensorPin);
     if (doorSensorErr != ESP_OK) {

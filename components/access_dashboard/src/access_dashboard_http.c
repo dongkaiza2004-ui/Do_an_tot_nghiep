@@ -50,6 +50,7 @@ typedef struct {
 
 typedef struct {
     bool active;
+    bool add_only;   
     uint16_t user_id;
     char name[24];
     char pin[ACCESS_USER_PIN_BUF];
@@ -375,7 +376,7 @@ static esp_err_t handle_user_add_start(httpd_req_t *req)
     }
 
     cJSON *json = cJSON_Parse(body);
-    secure_zero(body, strlen(body)); 
+    secure_zero(body, strlen(body));
     free(body);
     if (!json) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "JSON khong hop le");
@@ -394,7 +395,7 @@ static esp_err_t handle_user_add_start(httpd_req_t *req)
 
     // user_id phai la so nguyen trong 1..max (max do bo dang ky khoa cho biet, mac dinh 65535)
     const int max_id = s_prov_set ? (int)s_prov.max_user_index : 65535;
-    char msg[96];
+    char msg[112];
     if (user_id_item->valuedouble != (double)user_id_item->valueint ||
         user_id_item->valueint < 1 || user_id_item->valueint > max_id) {
         snprintf(msg, sizeof(msg), "user_id phai la so nguyen trong khoang 1..%d", max_id);
@@ -408,8 +409,11 @@ static esp_err_t handle_user_add_start(httpd_req_t *req)
     char name[24] = {0};
     strncpy(name, name_item->valuestring, sizeof(name) - 1);
 
+    // Nguoi dung DA co tren khoa -> chi them mau khuon mat cho Node A (nhieu mau cho 1 nguoi). PIN bi bo qua:
+    // khong doc, khong kiem tra, khong luu. KHONG bao gio dung toi nguoi dung/PIN dang co tren khoa.
+    const bool add_only = s_prov_set && s_prov.user_exists && s_prov.user_exists(user_id);
     char pin[ACCESS_USER_PIN_BUF] = {0};
-    if (s_prov_set) {
+    if (s_prov_set && !add_only) {
         if (!cJSON_IsString(pin_item) || !pin_is_valid(pin_item->valuestring)) {
             // KHONG dua PIN vao thong bao loi
             snprintf(msg, sizeof(msg), "PIN phai gom %u..%u chu so (0-9)",
@@ -424,11 +428,11 @@ static esp_err_t handle_user_add_start(httpd_req_t *req)
     zero_json_string(pin_item);
     cJSON_Delete(json);
 
-    if (s_prov_set) {
+    if (s_prov_set && !add_only) {
         // Kiem tra som, TRUOC khi bat nguoi dung chup anh, de khong chup xong moi bao loi
-        if (s_prov.user_exists && s_prov.user_exists(user_id)) {
+        if (s_prov.credential_slot_busy && s_prov.credential_slot_busy(user_id)) {
             secure_zero(pin, sizeof(pin));
-            snprintf(msg, sizeof(msg), "User ID %u da ton tai tren khoa. Xoa nguoi dung do truoc khi dang ky lai",
+            snprintf(msg, sizeof(msg), "O PIN cua User ID %u da bi chiem tren khoa. Xoa PIN do truoc khi dang ky",
                      (unsigned)user_id);
             httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, msg);
             return ESP_FAIL;
@@ -444,13 +448,22 @@ static esp_err_t handle_user_add_start(httpd_req_t *req)
     pending_clear();
     if (s_prov_set) {
         s_pending.active = true;
+        s_pending.add_only = add_only;
         s_pending.user_id = user_id;
         memcpy(s_pending.name, name, sizeof(s_pending.name));
-        memcpy(s_pending.pin, pin, sizeof(s_pending.pin));
+        memcpy(s_pending.pin, pin, sizeof(s_pending.pin)); 
         s_pending.started = xTaskGetTickCount();
     }
     secure_zero(pin, sizeof(pin));
     httpd_resp_set_type(req, "application/json");
+    if (add_only) {
+        return httpd_resp_sendstr(req,
+            "{\"ok\":true,\"mode\":\"add_face_only\",\"note\":\"nguoi dung da co tren khoa: chi them mau khuon mat, PIN (neu co) bi bo qua; goi /api/users/capture khi san sang chup\"}");
+    }
+    if (s_prov_set) {
+        return httpd_resp_sendstr(req,
+            "{\"ok\":true,\"mode\":\"new_user\",\"note\":\"da gui lenh bat dau dang ky, goi tiep /api/users/capture khi san sang chup\"}");
+    }
 
     return httpd_resp_sendstr(req,
         "{\"ok\":true,\"note\":\"da gui lenh bat dau dang ky, goi tiep /api/users/capture khi san sang chup\"}");
@@ -467,6 +480,7 @@ static esp_err_t handle_user_add_capture(httpd_req_t *req)
 
     httpd_resp_set_type(req, "application/json");
     if (!ok || resp.rsp_cmd != RSP_ADD_USER_RESULT || resp.len < sizeof(payload_add_user_result_t)) {
+        // Giu nguyen phien dang ky (chua xoa PIN) de nguoi dung co the bam "Chup" lai
         return httpd_resp_sendstr(req, "{\"ok\":false,\"error\":\"khong nhan duoc ket qua tu camera (timeout)\"}");
     }
 
@@ -478,25 +492,40 @@ static esp_err_t handle_user_add_capture(httpd_req_t *req)
 
     const bool face_ok = result.success != 0;
     bool matter_ok = false;
+    bool add_only_done = false;     // chi them mau khuon mat cho nguoi dung DA co tren khoa (khong dung toi khoa)
     bool rolled_back = false;
     char error[200] = {0};
+    char note[160] = {0};
 
     if (!face_ok) {
+        // Node A bao THAT BAI: khong co gi duoc them, nen KHONG co gi de huy (khong goi CMD_SUB_USER)
         pending_clear();
         snprintf(error, sizeof(error), "Camera bao dang ky khuon mat that bai");
     } else if (s_prov_set) {
-        // === Node A DA BAO THANH CONG -> bay gio moi dang ky tren khoa ===
+        // === Node A DA BAO THANH CONG 
         const bool valid_pending = s_pending.active && s_pending.user_id == result.user_id &&
                                    (TickType_t)(xTaskGetTickCount() - s_pending.started) <= pdMS_TO_TICKS(ENROLL_PENDING_TTL_MS);
-        if (!valid_pending) {
-            snprintf(error, sizeof(error),
-                     "Phien dang ky khong con hieu luc (het han hoac chua bam 'Bat dau')");
+        if (valid_pending && s_pending.add_only) {
+            add_only_done = true;
+        } else if (!valid_pending) {
+            if (s_prov.user_exists && s_prov.user_exists(result.user_id)) {
+                // Nguoi dung da co tren khoa -> day la them mau. TUYET DOI khong huy (CMD_SUB_USER xoa TOAN BO mau cua nguoi nay)
+                add_only_done = true;
+                snprintf(note, sizeof(note), "Phien khong con hieu luc nhung nguoi dung da co tren khoa: chi them mau khuon mat");
+            } else {
+                snprintf(error, sizeof(error), "Phien dang ky khong con hieu luc (het han hoac chua bam 'Bat dau')");
+            }
         } else {
+            // Nguoi dung moi: bay gio moi dang ky tren khoa
             access_user_prov_result_t pr = s_prov.register_user(result.user_id, s_pending.name, s_pending.pin);
             if (pr == ACCESS_USER_PROV_OK) {
                 matter_ok = true;
-            } else if (pr == ACCESS_USER_PROV_ERR_EXISTS || pr == ACCESS_USER_PROV_ERR_CREDENTIAL_SLOT_BUSY) {
-                snprintf(error, sizeof(error), "User ID %u da ton tai tren khoa", (unsigned)result.user_id);
+            } else if (pr == ACCESS_USER_PROV_ERR_EXISTS) {
+                // Nguoi dung vua duoc tao tren khoa giua luc "Bat dau" va "Chup": coi nhu them mau, giu nguyen nguoi dung/PIN cua khoa
+                add_only_done = true;
+                snprintf(note, sizeof(note), "User ID vua duoc tao tren khoa: chi them mau khuon mat, PIN bi bo qua");
+            } else if (pr == ACCESS_USER_PROV_ERR_CREDENTIAL_SLOT_BUSY) {
+                snprintf(error, sizeof(error), "O PIN cua User ID %u da bi chiem tren khoa", (unsigned)result.user_id);
             } else if (pr == ACCESS_USER_PROV_ERR_PIN_IN_USE) {
                 snprintf(error, sizeof(error), "PIN nay da duoc nguoi dung khac su dung");
             } else {
@@ -504,8 +533,8 @@ static esp_err_t handle_user_add_capture(httpd_req_t *req)
             }
         }
         pending_clear();
-        if (!matter_ok) {
-            rolled_back = rollback_face(result.user_id);   // tat ca hoac khong gi
+        if (!matter_ok && !add_only_done) {
+            rolled_back = rollback_face(result.user_id);   // chi cho nguoi dung MOI: tat ca hoac khong gi
             size_t n = strlen(error);
             snprintf(error + n, sizeof(error) - n, rolled_back
                      ? ". Da huy khuon mat vua dang ky tren camera"
@@ -515,15 +544,21 @@ static esp_err_t handle_user_add_capture(httpd_req_t *req)
 
 
     cJSON *obj = cJSON_CreateObject();
-    cJSON_AddBoolToObject(obj, "ok", face_ok && (!s_prov_set || matter_ok));
+    cJSON_AddBoolToObject(obj, "ok", face_ok && (!s_prov_set || matter_ok || add_only_done));
     cJSON_AddNumberToObject(obj, "user_id", result.user_id);
     cJSON_AddStringToObject(obj, "name", name_buf);
 
     if (s_prov_set) {
         cJSON_AddBoolToObject(obj, "matter_registered", matter_ok);
-        if (face_ok && !matter_ok) {
+        if (add_only_done) {
+            cJSON_AddStringToObject(obj, "mode", "add_face_only");
+        }
+        if (face_ok && !matter_ok && !add_only_done) {
             cJSON_AddBoolToObject(obj, "face_rolled_back", rolled_back);
         }
+    }
+    if (note[0]) {
+        cJSON_AddStringToObject(obj, "note", note);
     }
     if (error[0]) {
         cJSON_AddStringToObject(obj, "error", error);
@@ -538,6 +573,7 @@ static esp_err_t handle_user_add_capture(httpd_req_t *req)
 
 static esp_err_t handle_user_add_cancel(httpd_req_t *req)
 {
+    pending_clear(); 
     comm_uart_cmd_add_user_cancel();
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_sendstr(req, "{\"ok\":true}");

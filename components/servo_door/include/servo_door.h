@@ -12,8 +12,8 @@
 
 // ---- CAU HINH (sua cho khop co cau thuc te) --------------------------------
 constexpr gpio_num_t kServoPin          = GPIO_NUM_5;
-constexpr int        kServoClosedAngle  = 0;    // goc khi KHOA / cua dong (do)
-constexpr int        kServoOpenAngle    = 90;   // goc khi MO KHOA (do)
+constexpr int        kServoClosedAngle  = 90;    // goc khi KHOA / cua dong (do)
+constexpr int        kServoOpenAngle    = 0;   // goc khi MO KHOA (do)
 constexpr int        kServoMinPulseUs   = 500;  // SG90/MG90: ~500us = 0 do
 constexpr int        kServoMaxPulseUs   = 2400; // SG90/MG90: ~2400us = 180 do
 constexpr int        kServoHoldMs       = 1000; // giu PWM bao lau roi tat

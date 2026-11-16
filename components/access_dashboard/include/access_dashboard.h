@@ -28,6 +28,7 @@ void access_dashboard_stop(void);
 
 // Bo dem (gom ky tu NUL) ma dashboard giu tam PIN trong RAM, xoa ngay sau khi dung xong
 #define ACCESS_USER_PIN_BUF 16
+#define ACCESS_USER_ADD_FACE_ONLY 1
 
 typedef enum {
     ACCESS_USER_PROV_OK = 0,
@@ -41,7 +42,8 @@ typedef struct {
     uint16_t max_user_index;                   // user_id hop le: 1..max_user_index
     uint8_t pin_min_len;                       // so chu so PIN toi thieu
     uint8_t pin_max_len;                       // so chu so PIN toi da (< ACCESS_USER_PIN_BUF)
-    bool (*user_exists)(uint16_t user_index);  // true neu user_id (hoac o PIN cua no) da duoc dung tren khoa (co the NULL)
+    bool (*user_exists)(uint16_t user_index);  // true neu nguoi dung da co tren khoa (bat hoac vo hieu hoa) (co the NULL)
+    bool (*credential_slot_busy)(uint16_t user_index); // true neu o PIN cua user_index da bi chiem (co the NULL)
     bool (*pin_in_use)(const char *pin);       // true neu PIN da thuoc ve nguoi khac (co the NULL)
     access_user_prov_result_t (*register_user)(uint16_t user_index, const char *name, const char *pin);
     bool (*unregister_user)(uint16_t user_index); // true neu sau khi goi, nguoi dung khong con tren khoa (co the NULL)
